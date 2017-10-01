@@ -13,7 +13,6 @@ from image_pool import ImagePool, IMAGE_CAPACITY
 
 CHECKPOINT_DIR = 'checkpoints'
 
-#n_samples = 10000
 n_samples = IMAGE_CAPACITY
 
 def train(session,
@@ -21,7 +20,7 @@ def train(session,
           image_pool,
           saver,
           batch_size=100,
-          training_epochs=10,
+          training_epochs=500,
           display_step=1):
   
   for epoch in range(training_epochs):
