@@ -72,12 +72,12 @@ model = AutoEncoder()
 
 sess = tf.Session()
 
-# Checkpointからの復元
-saver = load_checkpoints(sess)
-
 # Variablesの初期化
 init = tf.global_variables_initializer()
 sess.run(init)
+
+# Checkpointからの復元
+saver = load_checkpoints(sess)
 
 # 学習
 train(sess, model, image_pool, saver)
