@@ -7,8 +7,7 @@ from PIL import Image
 import numpy as np
 import random
 
-#IMAGE_CAPACITY = 12288
-IMAGE_CAPACITY = 100
+IMAGE_CAPACITY = 12288
 
 class ImagePool(object):
   def __init__(self):
@@ -17,8 +16,7 @@ class ImagePool(object):
   def _load_image(self, index):
     file_name = "data/image{}.png".format(index)
     img = np.array( Image.open(file_name), dtype=np.float32)
-    # TODO: 1/255するか？
-    return img
+    return img * (1.0/255.0)
 
   def prepare(self):
     print("start filling image pool")
@@ -43,4 +41,3 @@ class ImagePool(object):
       #new_img = self._get_image()
       #self.images[image_pos] = new_img
     return batch
-

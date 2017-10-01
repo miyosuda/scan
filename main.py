@@ -84,4 +84,3 @@ sess.run(init)
 train(sess, model, image_pool, saver)
 
 sess.close()
-
