@@ -20,7 +20,7 @@ def train(session,
           data_manager,
           saver,
           batch_size=100,
-          training_epochs=500,
+          training_epochs=1500,
           display_step=1,
           save_step=10):
   

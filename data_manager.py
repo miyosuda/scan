@@ -76,7 +76,8 @@ class DataManager(object):
     batch_masked = []
     
     for i in range(batch_size):
-      image = self.images[self.used_image_index]
+      index = self.image_indices[self.used_image_index]
+      image = self.images[index]
       batch_org.append(image)
       masked_image = self._get_masked_image(image)
       batch_masked.append(masked_image)
