@@ -8,6 +8,7 @@ import math
 import tensorflow as tf
 
 class AutoEncoder(object):
+  
   def __init__(self, learning_rate=1e-4, epsilon=1e-8):
     self.learning_rate = learning_rate
     self.epsilon = epsilon
@@ -17,6 +18,7 @@ class AutoEncoder(object):
     
     # Define loss function and corresponding optimizer
     self._create_loss_optimizer()
+
 
   def _conv_weight_variable(self, weight_shape, deconv=False):
     w = weight_shape[0]
@@ -52,7 +54,7 @@ class AutoEncoder(object):
       out_width  = (input_width  - 1) * col_stride + filter_width
     elif padding_type == 'SAME':
       out_height = input_height * row_stride
-      out_width  = input_width * col_stride  
+      out_width  = input_width * col_stride
     return out_height, out_width
   
   
@@ -74,7 +76,6 @@ class AutoEncoder(object):
                                                            stride,
                                                            'SAME')
     batch_size = tf.shape(x)[0]
-    #..output_shape = tf.pack([batch_size, out_height, out_width, out_channel])
     output_shape = tf.stack([batch_size, out_height, out_width, out_channel])
     return tf.nn.conv2d_transpose(x, W, output_shape,
                                   strides=[1, stride, stride, 1],
@@ -102,7 +103,7 @@ class AutoEncoder(object):
     W_fc1, b_fc1 = self._fc_weight_variable([100, 5 * 5 * 64])
   
     # [filter_height, filter_width, output_channels, in_channels]
-    W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64],  deconv=True)
+    W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64], deconv=True)
     W_deconv2, b_deconv2 = self._conv_weight_variable([4, 4, 32, 64], deconv=True)
     W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], deconv=True)
     W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4, 3, 32],  deconv=True)
@@ -117,28 +118,31 @@ class AutoEncoder(object):
 
 
   def _create_network(self):
-    # tf Graph input
-    self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
+    # tf Graph input 
+    self.x = tf.placeholder("float", shape=[None, 80, 80, 3]) # Masked image input
+    self.x_org = tf.placeholder("float", shape=[None, 80, 80, 3]) # Original image input
     self.z = self._create_recognition_network(self.x)
     self.y = self._create_generator_network(self.z)
 
     
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x - self.y) )
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.y) )
     self.cost = reconstr_loss
 
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
       epsilon=self.epsilon).minimize(self.cost)
 
-  def partial_fit(self, sess, X):
+    
+  def partial_fit(self, sess, xs_masked, xs_org):
     """Train model based on mini-batch of input data.
     
     Return cost of mini-batch.
     """
-    opt, cost = sess.run((self.optimizer, self.cost), 
-                         feed_dict={self.x: X})
+    _, cost = sess.run((self.optimizer, self.cost), 
+                       feed_dict={self.x: xs_masked,
+                                  self.x_org: xs_org})
     return cost
 
 

@@ -9,7 +9,7 @@ import os
 from scipy.misc import imsave
 import matplotlib.pyplot as plt
 from auto_encoder import AutoEncoder
-from image_pool import ImagePool, IMAGE_CAPACITY
+from data_manager import DataManager, IMAGE_CAPACITY
 
 CHECKPOINT_DIR = 'checkpoints'
 
@@ -17,11 +17,12 @@ n_samples = IMAGE_CAPACITY
 
 def train(session,
           model,
-          image_pool,
+          data_manager,
           saver,
           batch_size=100,
           training_epochs=500,
-          display_step=1):
+          display_step=1,
+          save_step=10):
   
   for epoch in range(training_epochs):
     average_cost = 0.0
@@ -29,11 +30,11 @@ def train(session,
     
     # Loop over all batches
     for i in range(total_batch):
-      # バッチを取得する.
-      batch_xs = image_pool.next_batch(batch_size)
+      # Get batch of masked and orignal images
+      batch_xs_masked, batch_xs = data_manager.next_masked_batch(batch_size)
       
       # Fit training using batch data
-      cost = model.partial_fit(sess, batch_xs)
+      cost = model.partial_fit(sess, batch_xs_masked, batch_xs)
       
       # Compute average loss
       average_cost += cost / n_samples * batch_size
@@ -43,12 +44,12 @@ def train(session,
       print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(average_cost))
 
       reconstruct_xs = model.reconstruct(sess, batch_xs)
-      print(reconstruct_xs[0].shape)
       plt.imshow(reconstruct_xs[0].reshape((80,80,3)))
       plt.savefig('reconstr.png')
 
-    # checkpointへの保存
-    saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
+    # Save to checkpoint
+    if epoch % save_step == 0:
+      saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
 
     
 def load_checkpoints(sess):
@@ -65,21 +66,21 @@ def load_checkpoints(sess):
 
 
 
-image_pool = ImagePool()
-image_pool.prepare()
+data_manager = DataManager()
+data_manager.prepare()
 
 model = AutoEncoder()
 
 sess = tf.Session()
 
-# Variablesの初期化
+# Initialze variables
 init = tf.global_variables_initializer()
 sess.run(init)
 
-# Checkpointからの復元
+# Load from checkpoint
 saver = load_checkpoints(sess)
 
-# 学習
-train(sess, model, image_pool, saver)
+# Train
+train(sess, model, data_manager, saver)
 
 sess.close()
