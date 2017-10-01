@@ -8,8 +8,9 @@ import math
 import tensorflow as tf
 
 class AutoEncoder(object):
-  def __init__(self, learning_rate=1e-4):
+  def __init__(self, learning_rate=1e-3, epsilon=1e-8):
     self.learning_rate = learning_rate
+    self.epsilon = epsilon
     
     # Create autoencoder network
     self._create_network()
@@ -88,12 +89,10 @@ class AutoEncoder(object):
     W_conv4, b_conv4 = self._conv_weight_variable([4, 4, 64, 64])
     W_fc1, b_fc1     = self._fc_weight_variable([5 * 5 * 64, 100])
 
-    # TODO: selu
-    
-    h_conv1 = tf.nn.relu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
-    h_conv2 = tf.nn.relu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
-    h_conv3 = tf.nn.relu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
-    h_conv4 = tf.nn.relu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
+    h_conv1 = tf.nn.elu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
+    h_conv2 = tf.nn.elu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
+    h_conv3 = tf.nn.elu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
+    h_conv4 = tf.nn.elu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
     h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
     z = tf.tanh(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
     return z
@@ -108,13 +107,11 @@ class AutoEncoder(object):
     W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], deconv=True)
     W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4, 3, 32],  deconv=True)
 
-    # TODO: selu?
-  
-    h_fc1 = tf.nn.relu(tf.matmul(z, W_fc1) + b_fc1)
+    h_fc1 = tf.nn.elu(tf.matmul(z, W_fc1) + b_fc1)
     h_fc1_reshaped = tf.reshape(h_fc1, [-1, 5, 5, 64])
-    h_deconv1 = tf.tanh(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
-    h_deconv2 = tf.tanh(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
-    h_deconv3 = tf.tanh(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
+    h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
+    h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
+    h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
     y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
     return y
 
@@ -132,8 +129,8 @@ class AutoEncoder(object):
     self.cost = reconstr_loss
 
     self.optimizer = tf.train.AdamOptimizer(
-      learning_rate=self.learning_rate).minimize(self.cost)
-
+      learning_rate=self.learning_rate,
+      epsilon=self.epsilon).minimize(self.cost)
 
   def partial_fit(self, sess, X):
     """Train model based on mini-batch of input data.

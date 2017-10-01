@@ -76,7 +76,7 @@ sess = tf.Session()
 saver = load_checkpoints(sess)
 
 # Variablesの初期化
-init = tf.initialize_all_variables()
+init = tf.global_variables_initializer()
 sess.run(init)
 
 # 学習
