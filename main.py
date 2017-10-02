@@ -22,7 +22,7 @@ def train_dae(session,
               batch_size=100,
               training_epochs=1500,
               display_step=1,
-              save_step=10):
+              save_step=50):
   
   for epoch in range(training_epochs):
     average_cost = 0.0
@@ -43,7 +43,9 @@ def train_dae(session,
     if epoch % display_step == 0:
       print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(average_cost))
 
+    if epoch % 10 == 0:
       reconstruct_xs = dae.reconstruct(sess, batch_xs)
+      plt.figure()
       plt.imshow(reconstruct_xs[0].reshape((80,80,3)))
       plt.savefig('reconstr.png')
 
