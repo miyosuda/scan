@@ -7,18 +7,11 @@ import numpy as np
 import math
 import tensorflow as tf
 
-class AutoEncoder(object):
-  
-  def __init__(self, learning_rate=1e-4, epsilon=1e-8):
-    self.learning_rate = learning_rate
-    self.epsilon = epsilon
-    
-    # Create autoencoder network
-    self._create_network()
-    
-    # Define loss function and corresponding optimizer
-    self._create_loss_optimizer()
 
+class AE(object):
+  def __init__(self):
+    """ Auto Encoder base class. """
+    pass
 
   def _conv_weight_variable(self, weight_shape, deconv=False):
     w = weight_shape[0]
@@ -80,6 +73,22 @@ class AutoEncoder(object):
     return tf.nn.conv2d_transpose(x, W, output_shape,
                                   strides=[1, stride, stride, 1],
                                   padding='SAME')
+  
+
+class DAE(AE):
+  """ Denoising Auto Encoder. """
+  
+  def __init__(self, learning_rate=1e-4, epsilon=1e-8):
+    AE.__init__(self)
+    
+    self.learning_rate = learning_rate
+    self.epsilon = epsilon
+    
+    # Create autoencoder network
+    self._create_network()
+    
+    # Define loss function and corresponding optimizer
+    self._create_loss_optimizer()
       
   
   def _create_recognition_network(self, x):
@@ -119,20 +128,24 @@ class AutoEncoder(object):
 
   def _create_network(self):
     # tf Graph input 
-    self.x = tf.placeholder("float", shape=[None, 80, 80, 3]) # Masked image input
+    self.x     = tf.placeholder("float", shape=[None, 80, 80, 3]) # Masked image input
     self.x_org = tf.placeholder("float", shape=[None, 80, 80, 3]) # Original image input
-    self.z = self._create_recognition_network(self.x)
-    self.y = self._create_generator_network(self.z)
-
+    
+    with tf.variable_scope("dae"):
+      self.z = self._create_recognition_network(self.x)
+      self.y = self._create_generator_network(self.z)
+      
     
   def _create_loss_optimizer(self):
     # Reconstruction loss
     reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.y) )
     self.cost = reconstr_loss
 
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dae")
+    
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost)
+      epsilon=self.epsilon).minimize(self.cost, var_list=vars)
 
     
   def partial_fit(self, sess, xs_masked, xs_org):
