@@ -29,7 +29,8 @@ class DataManager(object):
       # [RGB]
       img = np.array(Image.open(file_name), dtype=np.float32)
       return img * (1.0/255.0)
-  
+
+    
   def prepare(self):
     print("start filling image pool")
 
@@ -80,6 +81,22 @@ class DataManager(object):
     masked_image[hmin:hmax,wmin:wmax,:] = 0.0
     return masked_image
 
+
+  def next_batch(self, batch_size):
+    batch = []
+    
+    for i in range(batch_size):
+      index = self.image_indices[self.used_image_index]
+      image = self.images[index]
+      batch.append(image)
+      
+      self.used_image_index += 1
+      if self.used_image_index >= IMAGE_CAPACITY:
+        self._prepare_indices()
+
+    return batch
+  
+  
   def next_masked_batch(self, batch_size):
     batch_org = []
     batch_masked = []
@@ -96,3 +113,4 @@ class DataManager(object):
         self._prepare_indices()
 
     return batch_masked, batch_org
+
