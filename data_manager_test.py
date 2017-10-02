@@ -38,7 +38,14 @@ class DataManagerTest(unittest.TestCase):
       # Every element of masked image should be equal or smaller than original's
       self.assertTrue( (masked_xs[i] <= xs[i]).all() )
 
-    
+      # Elements in image is 0.0 ~ 1.0
+      self.assertTrue( np.amax(xs[i]) <= 1.0 )
+      self.assertTrue( np.amin(xs[i]) >= 0.0 )
+      self.assertTrue( np.amax(masked_xs[i]) <= 1.0 )
+      self.assertTrue( np.amin(masked_xs[i]) >= 0.0 )
+
+      self.assertTrue( xs[i].dtype == np.float32 )      
+      self.assertTrue( masked_xs[i].dtype == np.float32 )
     
 
 if __name__ == '__main__':

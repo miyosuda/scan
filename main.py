@@ -9,6 +9,7 @@ import os
 from scipy.misc import imsave
 import matplotlib.pyplot as plt
 from model import DAE
+import utils
 from data_manager import DataManager, IMAGE_CAPACITY
 
 CHECKPOINT_DIR = 'checkpoints'
@@ -45,8 +46,10 @@ def train_dae(session,
 
     if epoch % 10 == 0:
       reconstruct_xs = dae.reconstruct(sess, batch_xs)
+      hsv_image = reconstruct_xs[0].reshape((80,80,3))
+      rgb_image = utils.convert_hsv_to_rgb(hsv_image)
       plt.figure()
-      plt.imshow(reconstruct_xs[0].reshape((80,80,3)))
+      plt.imshow(rgb_image)
       plt.savefig('reconstr.png')
 
     # Save to checkpoint
