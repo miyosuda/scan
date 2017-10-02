@@ -51,6 +51,7 @@ def train_dae(session,
       plt.figure()
       plt.imshow(rgb_image)
       plt.savefig('reconstr.png')
+      plt.close()
 
     # Save to checkpoint
     if epoch % save_step == 0:
