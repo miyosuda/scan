@@ -8,7 +8,7 @@ import numpy as np
 import os
 from scipy.misc import imsave
 import matplotlib.pyplot as plt
-from model import DAE
+from model import DAE, VAE
 import utils
 from data_manager import DataManager, IMAGE_CAPACITY
 
@@ -57,6 +57,47 @@ def train_dae(session,
     if epoch % save_step == 0:
       saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
 
+def train_vae(session,
+              vae,
+              data_manager,
+              saver,
+              batch_size=100,
+              training_epochs=1500,
+              display_step=1,
+              save_step=50):
+  
+  for epoch in range(training_epochs):
+    average_cost = 0.0
+    total_batch = int(n_samples / batch_size)
+    
+    # Loop over all batches
+    for i in range(total_batch):
+      # Get batch of images
+      batch_xs = data_manager.next_batch(batch_size)
+      
+      # Fit training using batch data
+      cost = vae.partial_fit(sess, batch_xs)
+      
+      # Compute average loss
+      average_cost += cost / n_samples * batch_size
+      
+     # Display logs per epoch step
+    if epoch % display_step == 0:
+      print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(average_cost))
+
+    if epoch % 10 == 0:
+      reconstruct_xs = vae.reconstruct(sess, batch_xs)
+      hsv_image = reconstruct_xs[0].reshape((80,80,3))
+      rgb_image = utils.convert_hsv_to_rgb(hsv_image)
+      plt.figure()
+      plt.imshow(rgb_image)
+      plt.savefig('reconstr.png')
+      plt.close()
+
+    # Save to checkpoint
+    if epoch % save_step == 0:
+      saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
+
     
 def load_checkpoints(sess):
   saver = tf.train.Saver()
@@ -76,6 +117,7 @@ data_manager = DataManager()
 data_manager.prepare()
 
 dae = DAE()
+vae = VAE()
 
 sess = tf.Session()
 
@@ -87,6 +129,7 @@ sess.run(init)
 saver = load_checkpoints(sess)
 
 # Train
-train_dae(sess, dae, data_manager, saver)
+#train_dae(sess, dae, data_manager, saver)
+train_vae(sess, vae, data_manager, saver)
 
 sess.close()
