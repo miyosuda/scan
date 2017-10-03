@@ -129,7 +129,7 @@ sess.run(init)
 saver = load_checkpoints(sess)
 
 # Train
-#train_dae(sess, dae, data_manager, saver)
+train_dae(sess, dae, data_manager, saver)
 train_vae(sess, vae, data_manager, saver)
 
 sess.close()

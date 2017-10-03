@@ -8,12 +8,29 @@ import math
 import tensorflow as tf
 
 
+def fc_initializer(input_channels, dtype=tf.float32):
+  def _initializer(shape, dtype=dtype, partition_info=None):
+    d = 1.0 / np.sqrt(input_channels)
+    return tf.random_uniform(shape, minval=-d, maxval=d)
+  return _initializer
+
+
+def conv_initializer(kernel_width, kernel_height, input_channels, dtype=tf.float32):
+  def _initializer(shape, dtype=dtype, partition_info=None):
+    d = 1.0 / np.sqrt(input_channels * kernel_width * kernel_height)
+    return tf.random_uniform(shape, minval=-d, maxval=d)
+  return _initializer
+
+
 class AE(object):
   def __init__(self):
     """ Auto Encoder base class. """
     pass
 
-  def _conv_weight_variable(self, weight_shape, deconv=False):
+  def _conv_weight_variable(self, weight_shape, name, deconv=False):
+    name_w = "W_{0}".format(name)
+    name_b = "b_{0}".format(name)
+    
     w = weight_shape[0]
     h = weight_shape[1]
     if deconv:
@@ -24,20 +41,24 @@ class AE(object):
       output_channels = weight_shape[3]
     d = 1.0 / np.sqrt(input_channels * w * h)
     bias_shape = [output_channels]
+
+    weight = tf.get_variable(name_w, weight_shape, initializer=fc_initializer(input_channels))
+    bias   = tf.get_variable(name_b, bias_shape,   initializer=fc_initializer(input_channels))
+    return weight, bias
+  
+  
+  def _fc_weight_variable(self, weight_shape, name):
+    name_w = "W_{0}".format(name)
+    name_b = "b_{0}".format(name)
     
-    weight_initial = tf.random_uniform(weight_shape, minval=-d, maxval=d)
-    bias_initial   = tf.random_uniform(bias_shape,   minval=-d, maxval=d)
-    return tf.Variable(weight_initial), tf.Variable(bias_initial)
-  
-  
-  def _fc_weight_variable(self, weight_shape):
     input_channels  = weight_shape[0]
     output_channels = weight_shape[1]
     d = 1.0 / np.sqrt(input_channels)
     bias_shape = [output_channels]
-    weight_initial = tf.random_uniform(weight_shape, minval=-d, maxval=d)
-    bias_initial   = tf.random_uniform(bias_shape,   minval=-d, maxval=d)
-    return tf.Variable(weight_initial), tf.Variable(bias_initial)
+
+    weight = tf.get_variable(name_w, weight_shape, initializer=fc_initializer(input_channels))
+    bias   = tf.get_variable(name_b, bias_shape,   initializer=fc_initializer(input_channels))
+    return weight, bias
   
   
   def _get2d_deconv_output_size(self, input_height, input_width, filter_height,
@@ -91,39 +112,45 @@ class DAE(AE):
     self._create_loss_optimizer()
       
   
-  def _create_recognition_network(self, x):
-    # [filter_height, filter_width, in_channels, out_channels]
-    W_conv1, b_conv1 = self._conv_weight_variable([4, 4, 3,  32])
-    W_conv2, b_conv2 = self._conv_weight_variable([4, 4, 32, 32])
-    W_conv3, b_conv3 = self._conv_weight_variable([4, 4, 32, 64])
-    W_conv4, b_conv4 = self._conv_weight_variable([4, 4, 64, 64])
-    W_fc1, b_fc1     = self._fc_weight_variable([5 * 5 * 64, 100])
+  def _create_recognition_network(self, x, reuse=False):
+    with tf.variable_scope("rec", reuse=reuse) as scope:    
+      # [filter_height, filter_width, in_channels, out_channels]
+      W_conv1, b_conv1 = self._conv_weight_variable([4, 4, 3,  32], "conv1")
+      W_conv2, b_conv2 = self._conv_weight_variable([4, 4, 32, 32], "conv2")
+      W_conv3, b_conv3 = self._conv_weight_variable([4, 4, 32, 64], "conv3")
+      W_conv4, b_conv4 = self._conv_weight_variable([4, 4, 64, 64], "conv4")
+      W_fc1, b_fc1     = self._fc_weight_variable([5 * 5 * 64, 100], "fc1")
 
-    h_conv1 = tf.nn.elu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
-    h_conv2 = tf.nn.elu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
-    h_conv3 = tf.nn.elu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
-    h_conv4 = tf.nn.elu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
-    h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
-    z = tf.tanh(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
-    return z
+      h_conv1 = tf.nn.elu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
+      h_conv2 = tf.nn.elu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
+      h_conv3 = tf.nn.elu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
+      h_conv4 = tf.nn.elu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
+      h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
+      z = tf.tanh(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
+      return z
 
   
-  def _create_generator_network(self, z):
-    W_fc1, b_fc1 = self._fc_weight_variable([100, 5 * 5 * 64])
-  
-    # [filter_height, filter_width, output_channels, in_channels]
-    W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64], deconv=True)
-    W_deconv2, b_deconv2 = self._conv_weight_variable([4, 4, 32, 64], deconv=True)
-    W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], deconv=True)
-    W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4, 3, 32],  deconv=True)
+  def _create_generator_network(self, z, reuse=False):
+    with tf.variable_scope("gen", reuse=reuse) as scope:
+      W_fc1, b_fc1 = self._fc_weight_variable([100, 5 * 5 * 64], "fc1")
+      
+      # [filter_height, filter_width, output_channels, in_channels]
+      W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64], "deconv1",
+                                                        deconv=True)
+      W_deconv2, b_deconv2 = self._conv_weight_variable([4, 4, 32, 64], "deconv2",
+                                                        deconv=True)
+      W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], "deconv3",
+                                                        deconv=True)
+      W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4, 3, 32],  "deconv4",
+                                                        deconv=True)
 
-    h_fc1 = tf.nn.elu(tf.matmul(z, W_fc1) + b_fc1)
-    h_fc1_reshaped = tf.reshape(h_fc1, [-1, 5, 5, 64])
-    h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
-    h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
-    h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
-    y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
-    return y
+      h_fc1 = tf.nn.elu(tf.matmul(z, W_fc1) + b_fc1)
+      h_fc1_reshaped = tf.reshape(h_fc1, [-1, 5, 5, 64])
+      h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
+      h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
+      h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
+      y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      return y
 
 
   def _create_network(self):
@@ -180,48 +207,50 @@ class VAE(AE):
     
     # Define loss function and corresponding optimizer
     self._create_loss_optimizer()
-      
-  
-  def _create_recognition_network(self, x):
-    # [filter_height, filter_width, in_channels, out_channels]
-    W_conv1, b_conv1 = self._conv_weight_variable([4, 4, 3,  32])
-    W_conv2, b_conv2 = self._conv_weight_variable([4, 4, 32, 32])
-    W_conv3, b_conv3 = self._conv_weight_variable([4, 4, 32, 64])
-    W_conv4, b_conv4 = self._conv_weight_variable([4, 4, 64, 64])
-    W_fc1, b_fc1     = self._fc_weight_variable([5 * 5 * 64, 256])
-    W_fc2, b_fc2     = self._fc_weight_variable([256, 32])
-    W_fc3, b_fc3     = self._fc_weight_variable([256, 32])
-
-    h_conv1 = tf.nn.relu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
-    h_conv2 = tf.nn.relu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
-    h_conv3 = tf.nn.relu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
-    h_conv4 = tf.nn.relu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
-    h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
-    h_fc = tf.nn.relu(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
     
-    z_mean         = tf.tanh(tf.matmul(h_fc, W_fc2) + b_fc2)
-    z_log_sigma_sq = tf.tanh(tf.matmul(h_fc, W_fc3) + b_fc3)
-    return (z_mean, z_log_sigma_sq)
+  
+  def _create_recognition_network(self, x, reuse=False):
+    with tf.variable_scope("rec", reuse=reuse) as scope:
+      # [filter_height, filter_width, in_channels, out_channels]
+      W_conv1, b_conv1 = self._conv_weight_variable([4, 4, 3,  32], "conv1")
+      W_conv2, b_conv2 = self._conv_weight_variable([4, 4, 32, 32], "conv2")
+      W_conv3, b_conv3 = self._conv_weight_variable([4, 4, 32, 64], "conv3")
+      W_conv4, b_conv4 = self._conv_weight_variable([4, 4, 64, 64], "conv4")
+      W_fc1, b_fc1     = self._fc_weight_variable([5 * 5 * 64, 256], "fc1")
+      W_fc2, b_fc2     = self._fc_weight_variable([256, 32], "fc2")
+      W_fc3, b_fc3     = self._fc_weight_variable([256, 32], "fc3")
+      
+      h_conv1 = tf.nn.relu(self._conv2d(x, W_conv1, 2) + b_conv1)        # (40, 40)
+      h_conv2 = tf.nn.relu(self._conv2d(h_conv1, W_conv2, 2) + b_conv2)  # (20, 20)
+      h_conv3 = tf.nn.relu(self._conv2d(h_conv2, W_conv3, 2) + b_conv3)  # (10, 10)
+      h_conv4 = tf.nn.relu(self._conv2d(h_conv3, W_conv4, 2) + b_conv4)  # (5, 5)
+      h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
+      h_fc = tf.nn.relu(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
+    
+      z_mean         = tf.tanh(tf.matmul(h_fc, W_fc2) + b_fc2)
+      z_log_sigma_sq = tf.tanh(tf.matmul(h_fc, W_fc3) + b_fc3)
+      return (z_mean, z_log_sigma_sq)
 
   
-  def _create_generator_network(self, z):
-    W_fc1, b_fc1 = self._fc_weight_variable([32, 256])
-    W_fc2, b_fc2 = self._fc_weight_variable([256, 5 * 5 * 64])
+  def _create_generator_network(self, z, reuse=False):
+    with tf.variable_scope("gen", reuse=reuse) as scope:    
+      W_fc1, b_fc1 = self._fc_weight_variable([32, 256], "fc1")
+      W_fc2, b_fc2 = self._fc_weight_variable([256, 5 * 5 * 64], "fc2")
 
-    # [filter_height, filter_width, output_channels, in_channels]
-    W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64], deconv=True)
-    W_deconv2, b_deconv2 = self._conv_weight_variable([4, 4, 32, 64], deconv=True)
-    W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], deconv=True)
-    W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4,  3, 32], deconv=True)
+      # [filter_height, filter_width, output_channels, in_channels]
+      W_deconv1, b_deconv1 = self._conv_weight_variable([4, 4, 64, 64], "deconv1", deconv=True)
+      W_deconv2, b_deconv2 = self._conv_weight_variable([4, 4, 32, 64], "deconv2", deconv=True)
+      W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], "deconv3", deconv=True)
+      W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4,  3, 32], "deconv4", deconv=True)
 
-    h_fc1 = tf.nn.elu(tf.matmul(z,     W_fc1) + b_fc1)
-    h_fc2 = tf.nn.elu(tf.matmul(h_fc1, W_fc2) + b_fc2)
-    h_fc2_reshaped = tf.reshape(h_fc2, [-1, 5, 5, 64])
-    h_deconv1 = tf.nn.elu(self._deconv2d(h_fc2_reshaped, W_deconv1, 5,   5, 2) + b_deconv1)
-    h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1,      W_deconv2, 10, 10, 2) + b_deconv2)
-    h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2,      W_deconv3, 20, 20, 2) + b_deconv3)
-    y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
-    return y
+      h_fc1 = tf.nn.elu(tf.matmul(z,     W_fc1) + b_fc1)
+      h_fc2 = tf.nn.elu(tf.matmul(h_fc1, W_fc2) + b_fc2)
+      h_fc2_reshaped = tf.reshape(h_fc2, [-1, 5, 5, 64])
+      h_deconv1 = tf.nn.elu(self._deconv2d(h_fc2_reshaped, W_deconv1, 5,   5, 2) + b_deconv1)
+      h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1,      W_deconv2, 10, 10, 2) + b_deconv2)
+      h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2,      W_deconv3, 20, 20, 2) + b_deconv3)
+      y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      return y
 
   
   def _sample_z(self, z_mean, z_log_sigma_sq):
