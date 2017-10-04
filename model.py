@@ -94,6 +94,15 @@ class AE(object):
     return tf.nn.conv2d_transpose(x, W, output_shape,
                                   strides=[1, stride, stride, 1],
                                   padding='SAME')
+
+  def _sample_z(self, z_mean, z_log_sigma_sq):
+    eps_shape = tf.shape(z_mean)
+    eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
+    # z = mu + sigma * epsilon
+    z = tf.add(z_mean,
+               tf.multiply(tf.sqrt(tf.exp(z_log_sigma_sq)), eps))
+    return z
+
   
 
 class DAE(AE):
@@ -149,8 +158,8 @@ class DAE(AE):
       h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
       h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
       h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
-      y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
-      return y
+      x_out = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      return x_out
 
 
   def _create_network(self):
@@ -159,13 +168,13 @@ class DAE(AE):
     self.x_org = tf.placeholder("float", shape=[None, 80, 80, 3]) # Original image input
     
     with tf.variable_scope("dae"):
-      self.z = self._create_recognition_network(self.x)
-      self.y = self._create_generator_network(self.z)
+      self.z     = self._create_recognition_network(self.x)
+      self.x_out = self._create_generator_network(self.z)
       
     
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.y) )
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.x_out) )
     self.cost = reconstr_loss
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dae")
@@ -188,7 +197,7 @@ class DAE(AE):
 
   def reconstruct(self, sess, X):
     """ Reconstruct given data. """
-    return sess.run(self.y, 
+    return sess.run(self.x_out, 
                     feed_dict={self.x: X})
 
 
@@ -198,13 +207,12 @@ class VAE(AE):
   def __init__(self, dae, beta=53.0, learning_rate=1e-4, epsilon=1e-8):
     AE.__init__(self)
 
-    self.dae = dae
     self.beta = beta
     self.learning_rate = learning_rate
     self.epsilon = epsilon
     
     # Create autoencoder network
-    self._create_network()
+    self._create_network(dae)
     
     # Define loss function and corresponding optimizer
     self._create_loss_optimizer()
@@ -244,26 +252,17 @@ class VAE(AE):
       W_deconv3, b_deconv3 = self._conv_weight_variable([4, 4, 32, 32], "deconv3", deconv=True)
       W_deconv4, b_deconv4 = self._conv_weight_variable([4, 4,  3, 32], "deconv4", deconv=True)
 
-      h_fc1 = tf.nn.elu(tf.matmul(z,     W_fc1) + b_fc1)
-      h_fc2 = tf.nn.elu(tf.matmul(h_fc1, W_fc2) + b_fc2)
+      h_fc1 = tf.nn.relu(tf.matmul(z,     W_fc1) + b_fc1)
+      h_fc2 = tf.nn.relu(tf.matmul(h_fc1, W_fc2) + b_fc2)
       h_fc2_reshaped = tf.reshape(h_fc2, [-1, 5, 5, 64])
-      h_deconv1 = tf.nn.elu(self._deconv2d(h_fc2_reshaped, W_deconv1, 5,   5, 2) + b_deconv1)
-      h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1,      W_deconv2, 10, 10, 2) + b_deconv2)
-      h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2,      W_deconv3, 20, 20, 2) + b_deconv3)
-      y = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
-      return y
+      h_deconv1 = tf.nn.relu(self._deconv2d(h_fc2_reshaped, W_deconv1, 5,   5, 2) + b_deconv1)
+      h_deconv2 = tf.nn.relu(self._deconv2d(h_deconv1,      W_deconv2, 10, 10, 2) + b_deconv2)
+      h_deconv3 = tf.nn.relu(self._deconv2d(h_deconv2,      W_deconv3, 20, 20, 2) + b_deconv3)
+      x_out = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      return x_out
 
-  
-  def _sample_z(self, z_mean, z_log_sigma_sq):
-    eps_shape = tf.shape(z_mean)
-    eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
-    # z = mu + sigma * epsilon
-    z = tf.add(z_mean,
-               tf.multiply(tf.sqrt(tf.exp(z_log_sigma_sq)), eps))
-    return z
-  
-
-  def _create_network(self):
+    
+  def _create_network(self, dae):
     # tf Graph input 
     self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
     
@@ -273,15 +272,16 @@ class VAE(AE):
       # Draw one sample z from Gaussian distribution
       # z = mu + sigma * epsilon
       self.z = self._sample_z(self.z_mean, self.z_log_sigma_sq)
-      self.y = self._create_generator_network(self.z)
+      self.x_out = self._create_generator_network(self.z)
 
     with tf.variable_scope("dae", reuse=True):
-      self.x_d = self.dae._create_recognition_network(self.x, reuse=True)
-      self.y_d = self.dae._create_recognition_network(self.y, reuse=True)
-    
+      self.x_d     = dae._create_recognition_network(self.x,     reuse=True)
+      self.x_out_d = dae._create_recognition_network(self.x_out, reuse=True)
+
+      
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_d - self.y_d) )
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_d - self.x_out_d) )
 
     # Latent loss
     latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
@@ -309,5 +309,86 @@ class VAE(AE):
 
   def reconstruct(self, sess, X):
     """ Reconstruct given data. """
-    return sess.run(self.y, 
+    return sess.run(self.x_out, 
                     feed_dict={self.x: X})
+
+
+class SCAN(AE):
+  """ SCAN Auto Encoder. """
+
+  def __init__(self, vae, beta=1.0, lmd=10.0, learning_rate=1e-4, epsilon=1e-8):
+
+    self.beta = beta
+    self.lmd = lmd
+    self.learning_rate = learning_rate
+    self.epsilon = epsilon
+
+    self._create_network(vae)
+    self._create_loss_optimizer()
+
+    
+  def _create_recognition_network(self, y, reuse=False):
+    with tf.variable_scope("rec", reuse=reuse) as scope:
+      # [filter_height, filter_width, in_channels, out_channels]
+      W_fc1, b_fc1     = self._fc_weight_variable([51, 100], "fc1")
+      W_fc2, b_fc2     = self._fc_weight_variable([100, 32], "fc2")
+      W_fc3, b_fc3     = self._fc_weight_variable([100, 32], "fc3")
+      
+      h_fc = tf.nn.relu(tf.matmul(y, W_fc1) + b_fc1)
+      z_mean         = tf.tanh(tf.matmul(h_fc, W_fc2) + b_fc2)
+      z_log_sigma_sq = tf.tanh(tf.matmul(h_fc, W_fc3) + b_fc3)
+      return (z_mean, z_log_sigma_sq)
+
+    
+  def _create_generator_network(self, z, reuse=False):
+    with tf.variable_scope("gen", reuse=reuse) as scope:
+      W_fc1, b_fc1 = self._fc_weight_variable([32, 100], "fc1")
+      W_fc2, b_fc2 = self._fc_weight_variable([100, 51], "fc2")
+
+      h_fc1 = tf.nn.relu(tf.matmul(z,     W_fc1) + b_fc1)
+      y_out = tf.nn.relu(tf.matmul(h_fc1, W_fc2) + b_fc2)
+      return y_out
+
+    
+  def _create_network(self, vae):
+    # tf Graph input
+    self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
+    self.y = tf.placeholder("float", shape=[None, 51])
+    
+    with tf.variable_scope("scan"):
+      self.z_mean, self.z_log_sigma_sq = self._create_recognition_network(self.y)
+      self.z = self._sample_z(self.z_mean, self.z_log_sigma_sq)
+      self.y_out = self._create_generator_network(self.z)
+
+    with tf.variable_scope("vae", reuse=True):
+      self.x_z_mean, self.x_z_log_sigma_sq = vae._create_recognition_network(self.x,
+                                                                             reuse=True)
+      self.x_z = self._sample_z(self.x_z_mean, self.x_z_log_sigma_sq)
+      self.x_out = vae._create_generator_network(self.x_z, reuse=True)
+
+
+  def _kl(self, mu1, log_sigma1_sq, mu2, log_sigma2_sq):
+    return tf.reduce_sum(0.5 * (log_sigma2_sq - log_sigma1_sq +
+                                tf.exp(log_sigma1_sq - log_sigma2_sq) +
+                                tf.square(mu1 - mu2) / tf.exp(log_sigma2_sq) -
+                                1), axis=-1)
+
+  
+  def _create_loss_optimizer(self):
+    # Reconstruction loss
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.y - self.y_out) )
+
+    # Latent loss
+    latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
+                                                   - tf.square(self.z_mean) 
+                                                   - tf.exp(self.z_log_sigma_sq))
+    latent_loss2 = self.lmd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
+                                       self.z_mean, self.z_log_sigma_sq)
+
+    self.cost = reconstr_loss + latent_loss + latent_loss2
+    
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan")
+    
+    self.optimizer = tf.train.AdamOptimizer(
+      learning_rate=self.learning_rate,
+      epsilon=self.epsilon).minimize(self.cost, var_list=vars)

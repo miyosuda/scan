@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import tensorflow as tf
-from model import DAE, VAE
+from model import DAE, VAE, SCAN
 
 class ModelTest(tf.test.TestCase):
   def test_dae(self):
@@ -18,6 +18,16 @@ class ModelTest(tf.test.TestCase):
     vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "vae")
     # Check size of optimizing vars
     self.assertEqual(len(vars), 14+12)
+
+  def test_scan(self):
+    dae = DAE()
+    vae = VAE(dae)
+    scan = SCAN(vae)
+
+    vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "scan")
+    # Check size of optimizing vars
+    self.assertEqual(len(vars), 6+4)
+
 
 if __name__ == "__main__":
   tf.test.main()
