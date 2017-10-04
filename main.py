@@ -117,7 +117,7 @@ data_manager = DataManager()
 data_manager.prepare()
 
 dae = DAE()
-vae = VAE()
+vae = VAE(dae)
 
 sess = tf.Session()
 

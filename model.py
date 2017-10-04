@@ -113,7 +113,7 @@ class DAE(AE):
       
   
   def _create_recognition_network(self, x, reuse=False):
-    with tf.variable_scope("rec", reuse=reuse) as scope:    
+    with tf.variable_scope("rec", reuse=reuse) as scope:
       # [filter_height, filter_width, in_channels, out_channels]
       W_conv1, b_conv1 = self._conv_weight_variable([4, 4, 3,  32], "conv1")
       W_conv2, b_conv2 = self._conv_weight_variable([4, 4, 32, 32], "conv2")
@@ -195,9 +195,10 @@ class DAE(AE):
 class VAE(AE):
   """ Beta Variational Auto Encoder. """
   
-  def __init__(self, beta=53.0, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, dae, beta=53.0, learning_rate=1e-4, epsilon=1e-8):
     AE.__init__(self)
 
+    self.dae = dae
     self.beta = beta
     self.learning_rate = learning_rate
     self.epsilon = epsilon
@@ -274,11 +275,13 @@ class VAE(AE):
       self.z = self._sample_z(self.z_mean, self.z_log_sigma_sq)
       self.y = self._create_generator_network(self.z)
 
+    with tf.variable_scope("dae", reuse=True):
+      self.x_d = self.dae._create_recognition_network(self.x, reuse=True)
+      self.y_d = self.dae._create_recognition_network(self.y, reuse=True)
     
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    # TODO: 再構成誤差で、DAEを利用する
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x - self.y) )
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_d - self.y_d) )
 
     # Latent loss
     latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
