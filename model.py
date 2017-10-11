@@ -275,13 +275,15 @@ class VAE(AE):
       self.x_out = self._create_generator_network(self.z)
 
     with tf.variable_scope("dae", reuse=True):
-      self.x_d     = dae._create_recognition_network(self.x,     reuse=True)
-      self.x_out_d = dae._create_recognition_network(self.x_out, reuse=True)
-
+      self.z_d     = dae._create_recognition_network(self.x,     reuse=True)
+      self.z_out_d = dae._create_recognition_network(self.x_out, reuse=True)
+      self.x_d     = dae._create_generator_network(self.z_d,     reuse=True)
+      self.x_out_d = dae._create_generator_network(self.z_out_d, reuse=True)
+      
       
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_d - self.x_out_d) )
+    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.z_d - self.z_out_d) )
 
     # Latent loss
     latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
@@ -289,7 +291,8 @@ class VAE(AE):
                                                    - tf.exp(self.z_log_sigma_sq))
 
     self.cost = reconstr_loss + latent_loss
-    
+
+    # DAE part is not trained.
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="vae")
     
     self.optimizer = tf.train.AdamOptimizer(
@@ -307,11 +310,16 @@ class VAE(AE):
     return cost
 
 
-  def reconstruct(self, sess, X):
+  def reconstruct(self, sess, X, through_dae=True):
     """ Reconstruct given data. """
-    return sess.run(self.x_out, 
-                    feed_dict={self.x: X})
-
+    if through_dae:
+      # Use output from DAE decoder
+      return sess.run(self.x_out_d, 
+                      feed_dict={self.x: X})
+    else:
+      # Original VAE output
+      return sess.run(self.x_out, 
+                      feed_dict={self.x: X})
 
 class SCAN(AE):
   """ SCAN Auto Encoder. """
