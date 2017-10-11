@@ -324,10 +324,10 @@ class VAE(AE):
 class SCAN(AE):
   """ SCAN Auto Encoder. """
 
-  def __init__(self, vae, beta=1.0, lmd=10.0, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, vae, beta=1.0, lambd=10.0, learning_rate=1e-4, epsilon=1e-8):
 
     self.beta = beta
-    self.lmd = lmd
+    self.lambd = lambd
     self.learning_rate = learning_rate
     self.epsilon = epsilon
 
@@ -390,8 +390,8 @@ class SCAN(AE):
     latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
                                                    - tf.square(self.z_mean) 
                                                    - tf.exp(self.z_log_sigma_sq))
-    latent_loss2 = self.lmd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
-                                       self.z_mean, self.z_log_sigma_sq)
+    latent_loss2 = self.lambd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
+                                         self.z_mean, self.z_log_sigma_sq)
 
     self.cost = reconstr_loss + latent_loss + latent_loss2
     

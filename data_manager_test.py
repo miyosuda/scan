@@ -46,6 +46,44 @@ class DataManagerTest(unittest.TestCase):
 
       self.assertTrue( xs[i].dtype == np.float32 )      
       self.assertTrue( masked_xs[i].dtype == np.float32 )
+
+
+  def test_next_batch(self):
+    data_manager = DataManager()
+    data_manager.prepare()
+
+    xs, labels = data_manager.next_batch(100, use_labels=True)
+    
+    self.assertTrue( len(xs) == 100 )
+    self.assertTrue( len(labels) == 100 )
+
+    for i in range(100):
+      # Shape check
+      self.assertTrue( xs[i].shape == (80,80,3) )
+      self.assertTrue( labels[i].shape == (51,) )
+      
+      # Elements in image is 0.0 ~ 1.0
+      self.assertTrue( np.amax(xs[i]) <= 1.0 )
+      self.assertTrue( np.amin(xs[i]) >= 0.0 )
+      self.assertTrue( xs[i].dtype == np.float32 )
+
+      self.assertTrue( np.amax(labels[i]) <= 1.0 )
+      self.assertTrue( np.amin(labels[i]) >= 0.0 )
+      self.assertTrue( labels[i].dtype == np.float32 )      
+    
+  
+  def test_index_to_labels(self):
+    data_manager = DataManager()
+    labels = data_manager._index_to_labels(0)
+
+    # Shape check
+    self.assertTrue( labels.shape == (51,) )
+
+    for i in range(51):
+      if i == 0 or i == 16 or i == 32 or i == 48:
+        labels[i] == 1.0
+      else:
+        labels[i] == 0.0
     
 
 if __name__ == '__main__':

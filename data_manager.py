@@ -82,19 +82,49 @@ class DataManager(object):
     return masked_image
 
 
-  def next_batch(self, batch_size):
+  def _index_to_labels(self, index):
+    obj_color = index % 16
+    
+    index = index // 16
+    wall_color = index % 16
+    
+    index = index // 16
+    floor_color = index % 16
+
+    index = index // 16
+    obj_id = index % 3
+
+    labels = np.zeros(3+16*3, dtype=np.float32)
+    labels[obj_color] = 1.0
+    labels[16 + wall_color] = 1.0
+    labels[32 + floor_color] = 1.0
+    labels[48 + obj_id] = 1.0
+    return labels
+    
+    
+  def next_batch(self, batch_size, use_labels=False):
     batch = []
+
+    if use_labels:
+      labels_batch = []
     
     for i in range(batch_size):
       index = self.image_indices[self.used_image_index]
       image = self.images[index]
       batch.append(image)
+
+      if use_labels:
+        labels = self._index_to_labels(index)
+        labels_batch.append(labels)
       
       self.used_image_index += 1
       if self.used_image_index >= IMAGE_CAPACITY:
         self._prepare_indices()
 
-    return batch
+    if use_labels:
+      return (batch, labels_batch)
+    else:
+      return batch
   
   
   def next_masked_batch(self, batch_size):
@@ -113,4 +143,3 @@ class DataManager(object):
         self._prepare_indices()
 
     return batch_masked, batch_org
-
