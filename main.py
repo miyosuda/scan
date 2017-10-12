@@ -163,7 +163,7 @@ def main(argv):
   vae_saver.load(sess)
 
   # Train
-  #..train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
   train_vae(sess, vae, data_manager, vae_saver, summary_writer)
 
   sess.close()
