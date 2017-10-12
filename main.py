@@ -47,7 +47,7 @@ def train_dae(session,
               save_step=50):
   
   for epoch in range(training_epochs):
-    average_cost = 0.0
+    average_loss = 0.0
     total_batch = int(n_samples / batch_size)
     
     # Loop over all batches
@@ -56,14 +56,14 @@ def train_dae(session,
       batch_xs_masked, batch_xs = data_manager.next_masked_batch(batch_size)
       
       # Fit training using batch data
-      cost = dae.partial_fit(sess, batch_xs_masked, batch_xs)
+      loss = dae.partial_fit(sess, batch_xs_masked, batch_xs)
       
       # Compute average loss
-      average_cost += cost / n_samples * batch_size
+      average_loss += loss / n_samples * batch_size
       
      # Display logs per epoch step
     if epoch % display_step == 0:
-      print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(average_cost))
+      print("Epoch:", '%04d' % (epoch+1), "loss=", "{:.3f}".format(average_loss))
 
     if epoch % 10 == 0:
       reconstruct_xs = dae.reconstruct(sess, batch_xs)
