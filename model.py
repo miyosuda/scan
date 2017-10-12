@@ -175,24 +175,28 @@ class DAE(AE):
   def _create_loss_optimizer(self):
     # Reconstruction loss
     reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.x_out) )
-    self.cost = reconstr_loss
+    self.loss = reconstr_loss
+
+    loss_summary_op = tf.summary.scalar('dae_loss', reconstr_loss)
+    self.summary_op = tf.summary.merge([loss_summary_op])
 
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dae")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
+      epsilon=self.epsilon).minimize(self.loss, var_list=self.variables)
 
     
-  def partial_fit(self, sess, xs_masked, xs_org):
+  def partial_fit(self, sess, xs_masked, xs_org, summary_writer, step):
     """Train model based on mini-batch of input data.
     
-    Return cost of mini-batch.
+    Return loss of mini-batch.
     """
-    _, cost = sess.run((self.optimizer, self.cost), 
-                       feed_dict={self.x: xs_masked,
-                                  self.x_org: xs_org})
-    return cost
+    _, loss, summary_str = sess.run((self.optimizer, self.loss, self.summary_op), 
+                                    feed_dict={self.x: xs_masked,
+                                               self.x_org: xs_org})
+    summary_writer.add_summary(summary_str, step)
+    return loss
 
 
   def reconstruct(self, sess, X):
@@ -267,7 +271,7 @@ class VAE(AE):
 
     
   def _create_network(self, dae):
-    # tf Graph input 
+    # tf Graph input
     self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
     
     with tf.variable_scope("vae"):
@@ -289,30 +293,38 @@ class VAE(AE):
     # Reconstruction loss
     self.reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.z_d - self.z_out_d) )
 
+    reconstr_loss_summary_op = tf.summary.scalar('vae_reconstr_loss', self.reconstr_loss)
+
     # Latent loss
     self.latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
                                                         - tf.square(self.z_mean) 
                                                         - tf.exp(self.z_log_sigma_sq))
 
-    self.cost = self.reconstr_loss + self.latent_loss
+    latent_loss_summary_op = tf.summary.scalar('vae_latent_loss', self.latent_loss)
+
+    self.summary_op = tf.summary.merge([reconstr_loss_summary_op, latent_loss_summary_op])
+    
+    self.loss = self.reconstr_loss + self.latent_loss
 
     # DAE part is not trained.
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="vae")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
+      epsilon=self.epsilon).minimize(self.loss, var_list=self.variables)
 
     
-  def partial_fit(self, sess, xs):
+  def partial_fit(self, sess, xs, summary_writer, step):
     """Train model based on mini-batch of input data.
     
-    Return cost of mini-batch.
+    Return loss of mini-batch.
     """
-    _, reconstr_loss, latent_loss = sess.run((self.optimizer,
-                                              self.reconstr_loss,
-                                              self.latent_loss), 
-                                             feed_dict={self.x: xs})
+    _, reconstr_loss, latent_loss, summary_str = sess.run((self.optimizer,
+                                                           self.reconstr_loss,
+                                                           self.latent_loss,
+                                                           self.summary_op),
+                                                          feed_dict={self.x: xs})
+    summary_writer.add_summary(summary_str, step)
     return reconstr_loss, latent_loss
 
 
@@ -405,15 +417,14 @@ class SCAN(AE):
     latent_loss2 = self.lambd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
                                          self.z_mean, self.z_log_sigma_sq)
 
-    self.cost = reconstr_loss + latent_loss + latent_loss2
+    self.loss = reconstr_loss + latent_loss + latent_loss2
     
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
+      epsilon=self.epsilon).minimize(self.loss, var_list=self.variables)
 
   
   def get_vars(self):
     return self.variables
-

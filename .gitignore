@@ -3,4 +3,5 @@ __pycache__
 data
 old
 checkpoints*
+log
 *.png
