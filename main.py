@@ -44,7 +44,7 @@ def train_dae(session,
               saver,
               summary_writer,
               batch_size=100,
-              training_epochs=1500,
+              training_epochs=3000,
               display_epoch=1,
               save_epoch=50):
 
@@ -92,7 +92,7 @@ def train_vae(session,
               saver,
               summary_writer,
               batch_size=100,
-              training_epochs=1500,
+              training_epochs=3000,
               display_epoch=1,
               save_epoch=50):
 
@@ -163,7 +163,7 @@ def main(argv):
   vae_saver.load(sess)
 
   # Train
-  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+  #..train_dae(sess, dae, data_manager, dae_saver, summary_writer)
   train_vae(sess, vae, data_manager, vae_saver, summary_writer)
 
   sess.close()

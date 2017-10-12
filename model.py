@@ -212,7 +212,7 @@ class DAE(AE):
 class VAE(AE):
   """ Beta Variational Auto Encoder. """
   
-  def __init__(self, dae, beta=53.0, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, dae, beta=1.0, learning_rate=1e-4, epsilon=1e-8):
     AE.__init__(self)
 
     self.beta = beta
@@ -244,8 +244,8 @@ class VAE(AE):
       h_conv4_flat = tf.reshape(h_conv4, [-1, 5 * 5 * 64])
       h_fc = tf.nn.relu(tf.matmul(h_conv4_flat, W_fc1) + b_fc1)
     
-      z_mean         = tf.tanh(tf.matmul(h_fc, W_fc2) + b_fc2)
-      z_log_sigma_sq = tf.tanh(tf.matmul(h_fc, W_fc3) + b_fc3)
+      z_mean         = tf.matmul(h_fc, W_fc2) + b_fc2
+      z_log_sigma_sq = tf.matmul(h_fc, W_fc3) + b_fc3
       return (z_mean, z_log_sigma_sq)
 
   
@@ -367,8 +367,8 @@ class SCAN(AE):
       W_fc3, b_fc3     = self._fc_weight_variable([100, 32], "fc3")
       
       h_fc = tf.nn.relu(tf.matmul(y, W_fc1) + b_fc1)
-      z_mean         = tf.tanh(tf.matmul(h_fc, W_fc2) + b_fc2)
-      z_log_sigma_sq = tf.tanh(tf.matmul(h_fc, W_fc3) + b_fc3)
+      z_mean         = tf.matmul(h_fc, W_fc2) + b_fc2
+      z_log_sigma_sq = tf.matmul(h_fc, W_fc3) + b_fc3
       return (z_mean, z_log_sigma_sq)
 
     
@@ -378,7 +378,7 @@ class SCAN(AE):
       W_fc2, b_fc2 = self._fc_weight_variable([100, 51], "fc2")
 
       h_fc1 = tf.nn.relu(tf.matmul(z,     W_fc1) + b_fc1)
-      y_out = tf.nn.relu(tf.matmul(h_fc1, W_fc2) + b_fc2)
+      y_out = tf.sigmoid(tf.matmul(h_fc1, W_fc2) + b_fc2)
       return y_out
 
     
@@ -408,6 +408,7 @@ class SCAN(AE):
   
   def _create_loss_optimizer(self):
     # Reconstruction loss
+    # TODO: USE sigmoid_cross_entropy_with_logits
     reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.y - self.y_out) )
 
     # Latent loss
