@@ -177,11 +177,11 @@ class DAE(AE):
     reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_org - self.x_out) )
     self.cost = reconstr_loss
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dae")
+    self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dae")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=vars)
+      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
 
     
   def partial_fit(self, sess, xs_masked, xs_org):
@@ -199,6 +199,10 @@ class DAE(AE):
     """ Reconstruct given data. """
     return sess.run(self.x_out, 
                     feed_dict={self.x: X})
+
+  
+  def get_vars(self):
+    return self.variables
 
 
 class VAE(AE):
@@ -293,11 +297,11 @@ class VAE(AE):
     self.cost = reconstr_loss + latent_loss
 
     # DAE part is not trained.
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="vae")
+    self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="vae")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=vars)
+      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
 
     
   def partial_fit(self, sess, xs):
@@ -320,6 +324,12 @@ class VAE(AE):
       # Original VAE output
       return sess.run(self.x_out, 
                       feed_dict={self.x: X})
+
+  
+  def get_vars(self):
+    return self.variables
+
+
 
 class SCAN(AE):
   """ SCAN Auto Encoder. """
@@ -395,8 +405,13 @@ class SCAN(AE):
 
     self.cost = reconstr_loss + latent_loss + latent_loss2
     
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan")
+    self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.cost, var_list=vars)
+      epsilon=self.epsilon).minimize(self.cost, var_list=self.variables)
+
+  
+  def get_vars(self):
+    return self.variables
+

@@ -16,6 +16,27 @@ CHECKPOINT_DIR = 'checkpoints'
 
 n_samples = IMAGE_CAPACITY
 
+class CheckPointSaver(object):
+  def __init__(self, directory, name, variables):
+    self.name = name
+    self.saver = tf.train.Saver(variables)
+    self.save_dir = directory + '/' + name
+
+    if not os.path.exists(self.save_dir):
+      os.makedirs(self.save_dir)
+
+  def load(self, session):
+    checkpoint = tf.train.get_checkpoint_state(self.save_dir)
+    if checkpoint and checkpoint.model_checkpoint_path:
+      self.saver.restore(sess, checkpoint.model_checkpoint_path)
+      print("{}: loaded checkpoint: {}".format(self.name, checkpoint.model_checkpoint_path))
+    else:
+      print("{}: checkpoint not found".format(self.name))
+      
+  def save(self, session, global_step):
+    self.saver.save(session, self.save_dir + '/checkpoint', global_step=global_step)
+
+
 def train_dae(session,
               dae,
               data_manager,
@@ -55,7 +76,8 @@ def train_dae(session,
 
     # Save to checkpoint
     if epoch % save_step == 0:
-      saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
+      saver.save(session, epoch)
+      
 
 def train_vae(session,
               vae,
@@ -96,20 +118,7 @@ def train_vae(session,
 
     # Save to checkpoint
     if epoch % save_step == 0:
-      saver.save(session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step = epoch)
-
-    
-def load_checkpoints(sess):
-  saver = tf.train.Saver()
-  checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIR)
-  if checkpoint and checkpoint.model_checkpoint_path:
-    saver.restore(sess, checkpoint.model_checkpoint_path)
-    print("loaded checkpoint: {0}".format(checkpoint.model_checkpoint_path))
-  else:
-    print("Could not find old checkpoint")
-    if not os.path.exists(CHECKPOINT_DIR):
-      os.mkdir(CHECKPOINT_DIR)
-  return saver
+      saver.save(session, epoch)
 
 
 
@@ -119,6 +128,9 @@ data_manager.prepare()
 dae = DAE()
 vae = VAE(dae)
 
+dae_saver = CheckPointSaver(CHECKPOINT_DIR, "dae", dae.get_vars())
+vae_saver = CheckPointSaver(CHECKPOINT_DIR, "vae", vae.get_vars())
+
 sess = tf.Session()
 
 # Initialze variables
@@ -126,10 +138,11 @@ init = tf.global_variables_initializer()
 sess.run(init)
 
 # Load from checkpoint
-saver = load_checkpoints(sess)
+dae_saver.load(sess)
+vae_saver.load(sess)
 
 # Train
-train_dae(sess, dae, data_manager, saver)
-train_vae(sess, vae, data_manager, saver)
+train_dae(sess, dae, data_manager, dae_saver)
+train_vae(sess, vae, data_manager, vae_saver)
 
 sess.close()
