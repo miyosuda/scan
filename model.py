@@ -287,14 +287,14 @@ class VAE(AE):
       
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.z_d - self.z_out_d) )
+    self.reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.z_d - self.z_out_d) )
 
     # Latent loss
-    latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
-                                                   - tf.square(self.z_mean) 
-                                                   - tf.exp(self.z_log_sigma_sq))
+    self.latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
+                                                        - tf.square(self.z_mean) 
+                                                        - tf.exp(self.z_log_sigma_sq))
 
-    self.cost = reconstr_loss + latent_loss
+    self.cost = self.reconstr_loss + self.latent_loss
 
     # DAE part is not trained.
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="vae")
@@ -309,9 +309,11 @@ class VAE(AE):
     
     Return cost of mini-batch.
     """
-    _, cost = sess.run((self.optimizer, self.cost), 
-                       feed_dict={self.x: xs})
-    return cost
+    _, reconstr_loss, latent_loss = sess.run((self.optimizer,
+                                              self.reconstr_loss,
+                                              self.latent_loss), 
+                                             feed_dict={self.x: xs})
+    return reconstr_loss, latent_loss
 
 
   def reconstruct(self, sess, X, through_dae=True):

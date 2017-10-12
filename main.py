@@ -89,7 +89,8 @@ def train_vae(session,
               save_step=50):
   
   for epoch in range(training_epochs):
-    average_cost = 0.0
+    average_reconstr_loss = 0.0
+    average_latent_loss   = 0.0
     total_batch = int(n_samples / batch_size)
     
     # Loop over all batches
@@ -98,14 +99,17 @@ def train_vae(session,
       batch_xs = data_manager.next_batch(batch_size)
       
       # Fit training using batch data
-      cost = vae.partial_fit(sess, batch_xs)
+      reconstr_loss, latent_loss = vae.partial_fit(sess, batch_xs)
       
       # Compute average loss
-      average_cost += cost / n_samples * batch_size
+      average_reconstr_loss += reconstr_loss / n_samples * batch_size
+      average_latent_loss   += latent_loss   / n_samples * batch_size
       
      # Display logs per epoch step
     if epoch % display_step == 0:
-      print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(average_cost))
+      print("Epoch:", '%04d' % (epoch+1),
+            "reconstr=", "{:.3f}".format(average_reconstr_loss),
+            "latent=",   "{:.3f}".format(average_latent_loss))
 
     if epoch % 10 == 0:
       reconstruct_xs = vae.reconstruct(sess, batch_xs)
