@@ -199,10 +199,10 @@ class DAE(AE):
     return loss
 
 
-  def reconstruct(self, sess, X):
+  def reconstruct(self, sess, xs):
     """ Reconstruct given data. """
     return sess.run(self.x_out, 
-                    feed_dict={self.x: X})
+                    feed_dict={self.x: xs})
 
   
   def get_vars(self):
@@ -328,17 +328,29 @@ class VAE(AE):
     return reconstr_loss, latent_loss
 
 
-  def reconstruct(self, sess, X, through_dae=True):
+  def reconstruct(self, sess, xs, through_dae=True):
     """ Reconstruct given data. """
     if through_dae:
       # Use output from DAE decoder
       return sess.run(self.x_out_d, 
-                      feed_dict={self.x: X})
+                      feed_dict={self.x: xs})
     else:
       # Original VAE output
       return sess.run(self.x_out, 
-                      feed_dict={self.x: X})
+                      feed_dict={self.x: xs})
 
+  
+  def transform(self, sess, xs):
+    """Transform data by mapping it into the latent space."""
+    return sess.run( [self.z_mean, self.z_log_sigma_sq],
+                     feed_dict={self.x: xs} )
+  
+
+  def generate(self, sess, zs):
+    """ Generate data by sampling from latent space. """
+    return sess.run( self.x_out_d, 
+                     feed_dict={self.z: zs} )
+  
   
   def get_vars(self):
     return self.variables

@@ -6,7 +6,7 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 import os
-from scipy.misc import imsave
+from scipy.misc import toimage
 import matplotlib.pyplot as plt
 from model import DAE, VAE
 import utils
@@ -138,6 +138,45 @@ def train_vae(session,
       saver.save(session, epoch)
 
 
+def disentangle_check(session, vae, data_manager, save_original=True):
+  hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+  rgb_image = utils.convert_hsv_to_rgb(hsv_image)
+  if save_original:
+    toimage(rgb_image, cmin=0, cmax=1.0).save("original.png")
+
+  batch_xs = [hsv_image]
+  z_mean, z_log_sigma_sq = vae.transform(session, batch_xs)
+  z_sigma_sq = np.exp(z_log_sigma_sq)[0]
+
+  # Print variance
+  zss_str = ""
+  for i,zss in enumerate(z_sigma_sq):
+    str = "z{0}={1:.2f}".format(i,zss)
+    zss_str += str + ", "
+  print(zss_str)
+
+  # Save disentangled images
+  z_m = z_mean[0]
+  n_z = 32
+
+  if not os.path.exists("disentangle_img"):
+    os.mkdir("disentangle_img")
+
+  for target_z_index in range(n_z):
+    for ri in range(10):
+      value = -3.0 + (6.0 / 9.0) * ri
+      z_mean2 = np.zeros((1, n_z))
+      for i in range(n_z):
+        if( i == target_z_index ):
+          z_mean2[0][i] = value
+        else:
+          z_mean2[0][i] = z_m[i]
+      generated_xs = vae.generate(session, z_mean2)
+      hsv_reconstr_img = generated_xs.reshape((80,80,3))
+      rgb_reconstr_img = utils.convert_hsv_to_rgb(hsv_reconstr_img)
+      toimage(rgb_reconstr_img, cmin=0, cmax=1.0).save(
+        "disentangle_img/check_z{0}_{1}.png".format(target_z_index,ri))
+
 
 def main(argv):
   data_manager = DataManager()
@@ -163,8 +202,10 @@ def main(argv):
   vae_saver.load(sess)
 
   # Train
-  #..train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
   train_vae(sess, vae, data_manager, vae_saver, summary_writer)
+
+  disentangle_check(sess, vae, data_manager)
 
   sess.close()
   

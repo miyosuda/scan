@@ -143,3 +143,9 @@ class DataManager(object):
         self._prepare_indices()
 
     return batch_masked, batch_org
+
+  
+  def get_image(self, obj_color, wall_color, floor_color, obj_id):
+    index = obj_color + wall_color * 16 + floor_color * 16 * 16 + obj_id * 16 * 16 * 16
+    image = self.images[index]
+    return image
