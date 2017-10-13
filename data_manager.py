@@ -82,7 +82,11 @@ class DataManager(object):
     return masked_image
 
   
-  def get_labels(self, obj_color, wall_color, floor_color, obj_id):
+  def get_labels(self, obj_color=-1, wall_color=-1, floor_color=-1, obj_id=-1):
+    """ Get labels (float array with 51 values of 0.0 or 1.0) by specifing each elements. 
+    If element is -1, it means that element (color or object type) is not specified.  
+    """
+    
     labels = np.zeros(3+16*3, dtype=np.float32)
 
     if obj_color >= 0:

@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import cv2
 import numpy as np
+from scipy.misc import toimage
 
 
 def convert_hsv_to_rgb(image):
@@ -15,3 +16,8 @@ def convert_hsv_to_rgb(image):
   rgb = bgr[:, :, ::-1] # np.uint8
   scale_rgb = np.array([1.0/255.0, 1.0/255, 1.0/255.0], dtype=np.float32)
   return rgb * scale_rgb
+
+
+def save_image(image, file_name):
+  """ Save RGB image (0.0~1.0) """
+  toimage(image, cmin=0, cmax=1.0).save(file_name)

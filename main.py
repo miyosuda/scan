@@ -76,10 +76,7 @@ def train_dae(session,
       reconstruct_xs = dae.reconstruct(session, batch_xs)
       hsv_image = reconstruct_xs[0].reshape((80,80,3))
       rgb_image = utils.convert_hsv_to_rgb(hsv_image)
-      plt.figure()
-      plt.imshow(rgb_image)
-      plt.savefig('reconstr.png')
-      plt.close()
+      utils.save_image(rgb_image, "reconstr.png")
 
     # Save to checkpoint
     if epoch % save_epoch == 0:
@@ -128,10 +125,7 @@ def train_vae(session,
       reconstruct_xs = vae.reconstruct(session, batch_xs)
       hsv_image = reconstruct_xs[0].reshape((80,80,3))
       rgb_image = utils.convert_hsv_to_rgb(hsv_image)
-      plt.figure()
-      plt.imshow(rgb_image)
-      plt.savefig('reconstr.png')
-      plt.close()
+      utils.save_image(rgb_image, "reconstr.png")
 
     # Save to checkpoint
     if epoch % save_epoch == 0:
@@ -185,11 +179,12 @@ def train_scan(session,
 
 
 def disentangle_check(session, vae, data_manager, save_original=False):
+  """ Generate disentangled images with Beta VAE """
   hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
   rgb_image = utils.convert_hsv_to_rgb(hsv_image)
   
   if save_original:
-    toimage(rgb_image, cmin=0, cmax=1.0).save("original.png")
+    utils.save_image(rgb_image, "original.png")
 
   batch_xs = [hsv_image]
   z_mean, z_log_sigma_sq = vae.transform(session, batch_xs)
@@ -211,6 +206,7 @@ def disentangle_check(session, vae, data_manager, save_original=False):
 
   for target_z_index in range(n_z):
     for ri in range(10):
+      # Change z mean value from -3.0 to +3.0
       value = -3.0 + (6.0 / 9.0) * ri
       z_mean2 = np.zeros((1, n_z))
       for i in range(n_z):
@@ -221,29 +217,38 @@ def disentangle_check(session, vae, data_manager, save_original=False):
       generated_xs = vae.generate(session, z_mean2)
       hsv_reconstr_img = generated_xs.reshape((80,80,3))
       rgb_reconstr_img = utils.convert_hsv_to_rgb(hsv_reconstr_img)
-      toimage(rgb_reconstr_img, cmin=0, cmax=1.0).save(
-        "disentangle_img/check_z{0}_{1}.png".format(target_z_index,ri))
-
+      utils.save_image(rgb_reconstr_img,
+                       "disentangle_img/check_z{0}_{1}.png".format(target_z_index,ri))
+      
 
 def sym2img_check(session, scan, data_manager):
-  y = data_manager.get_labels(-1, 0, -1, -1)
-  ys = [y]
+  """ Check sym2img conversion """
+  y = data_manager.get_labels(wall_color=0)
+  ys = [y] * 10
 
-  if not os.path.exists("sym2img"):
-    os.mkdir("sym2img")
+  xs = scan.generate_from_labels(session, ys)
 
-  for i in range(10):
-    xs = scan.generate_from_labels(session, ys)
-    hsv_image = xs[0].reshape((80,80,3))
+  plt.figure()
+  fig, axes = plt.subplots(1, 10, figsize=(10, 1),
+                           subplot_kw={'xticks': [], 'yticks': []})
+  fig.subplots_adjust(hspace=0.1, wspace=0.1)
+
+  for ax,x in zip(axes.flat, xs):
+    hsv_image = x.reshape((80,80,3))
     rgb_image = utils.convert_hsv_to_rgb(hsv_image)
-    plt.figure()
-    plt.imshow(rgb_image)
-    file_name = "sym2img/sym2img_gen{}.png".format(i)
-    plt.savefig(file_name)
-    plt.close()
+
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.imshow(rgb_image)
+
+  plt.savefig("sym2img.png")
+  plt.close()
 
 
 def img2sym_check(session, scan, data_manager):
+  """ Check img2sym conversion """
   hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
   batch_xs = [hsv_image] * 10
 
@@ -288,7 +293,7 @@ def main(argv):
   disentangle_check(sess, vae, data_manager)
   
   train_scan(sess, scan, data_manager, scan_saver, summary_writer)
-  
+
   sym2img_check(sess, scan, data_manager)
   img2sym_check(sess, scan, data_manager)
 

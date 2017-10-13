@@ -1,9 +1,7 @@
 *.pyc
 __pycache__
 data
-old
 checkpoints*
 log
 *.png
 disentangle_img
-sym2img
