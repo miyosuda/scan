@@ -137,7 +137,7 @@ def train_vae(session,
     if epoch % save_epoch == 0:
       saver.save(session, epoch)
 
-      
+
 def train_scan(session,
                scan,
                data_manager,
@@ -178,17 +178,6 @@ def train_scan(session,
             "reconstr=", "{:.3f}".format(average_reconstr_loss),
             "latent0=",  "{:.3f}".format(average_latent_loss0),
             "latent1=",  "{:.3f}".format(average_latent_loss1))
-
-    """
-    if epoch % 10 == 0:
-      reconstruct_xs = scan.reconstruct(session, batch_xs)
-      hsv_image = reconstruct_xs[0].reshape((80,80,3))
-      rgb_image = utils.convert_hsv_to_rgb(hsv_image)
-      plt.figure()
-      plt.imshow(rgb_image)
-      plt.savefig('reconstr.png')
-      plt.close()
-    """
 
     # Save to checkpoint
     if epoch % save_epoch == 0:
@@ -248,11 +237,23 @@ def sym2img_check(session, scan, data_manager):
     hsv_image = xs[0].reshape((80,80,3))
     rgb_image = utils.convert_hsv_to_rgb(hsv_image)
     plt.figure()
-    plt.imshow(rgb_image)    
+    plt.imshow(rgb_image)
     file_name = "sym2img/sym2img_gen{}.png".format(i)
     plt.savefig(file_name)
     plt.close()
 
+
+def img2sym_check(session, scan, data_manager):
+  hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+  batch_xs = [hsv_image] * 10
+
+  ys = scan.generate_from_images(session, batch_xs)  
+  for y in ys:
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(y)
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
 
 def main(argv):
   data_manager = DataManager()
@@ -289,6 +290,7 @@ def main(argv):
   train_scan(sess, scan, data_manager, scan_saver, summary_writer)
   
   sym2img_check(sess, scan, data_manager)
+  img2sym_check(sess, scan, data_manager)
 
   sess.close()
   

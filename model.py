@@ -417,16 +417,16 @@ class SCAN(AE):
       self.x_out_d = dae._create_generator_network(self.z_out_d, reuse=True)
 
     # Create sym2img network
-    with tf.variable_scope("scan", reuse=True):
-      z_mean_s2i, z_log_sigma_sq_s2i = self._create_recognition_network(self.y, reuse=True)
-      z_s2i = self._sample_z(z_mean_s2i, z_log_sigma_sq_s2i)
-
     with tf.variable_scope("vae", reuse=True):
-      x_s2i = vae._create_generator_network(z_s2i, reuse=True)
+      x_s2i = vae._create_generator_network(self.z, reuse=True)
 
     with tf.variable_scope("dae", reuse=True):
       z_d_s2i = dae._create_recognition_network(x_s2i, reuse=True)
       self.x_d_s2i = dae._create_generator_network(z_d_s2i, reuse=True)
+
+    # Create img2sym network
+    with tf.variable_scope("scan", reuse=True):
+      _, self.y_i2s = self._create_generator_network(self.x_z, reuse=True)
 
 
   def _kl(self, mu1, log_sigma1_sq, mu2, log_sigma2_sq):
@@ -483,9 +483,15 @@ class SCAN(AE):
 
 
   def generate_from_labels(self, sess, ys):
-    """ Generate image data from labels. """
+    """ Generate image data from labels. (sym2img) """
     return sess.run( self.x_d_s2i, 
                      feed_dict={self.y: ys} )
+
+  
+  def generate_from_images(self, sess, xs):
+    """ Generate labels from images. (img2sym) """
+    return sess.run( self.y_i2s, 
+                     feed_dict={self.x: xs} )
 
   
   def get_vars(self):

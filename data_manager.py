@@ -113,7 +113,31 @@ class DataManager(object):
     obj_id = index % 3
     
     return self.get_labels(obj_color, wall_color, floor_color, obj_id)
-    
+
+
+  def choose_labels(self, y):
+    """ retrieve label element from img2sym output. """
+    label_indices = []
+    for i,v in enumerate(y):
+      if random.random() <= v:
+        label_indices.append(i)
+
+    obj_color = []
+    wall_color = []
+    floor_color = []
+    obj_id = []
+
+    for index in label_indices:
+      if index < 16:
+        obj_color.append(index)
+      elif index < 32:
+        wall_color.append(index-16)
+      elif index < 48:
+        floor_color.append(index-32)
+      else:
+        obj_id.append(index-48)        
+    return (obj_color, wall_color, floor_color, obj_id)
+  
     
   def next_batch(self, batch_size, use_labels=False):
     batch = []
