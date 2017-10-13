@@ -8,7 +8,7 @@ import numpy as np
 import os
 from scipy.misc import toimage
 import matplotlib.pyplot as plt
-from model import DAE, VAE
+from model import DAE, VAE, SCAN
 import utils
 from data_manager import DataManager, IMAGE_CAPACITY
 
@@ -137,6 +137,63 @@ def train_vae(session,
     if epoch % save_epoch == 0:
       saver.save(session, epoch)
 
+      
+def train_scan(session,
+               scan,
+               data_manager,
+               saver,
+               summary_writer,
+               batch_size=16,
+               training_epochs=3000,
+               display_epoch=1,
+               save_epoch=50):
+
+  step = 0
+  
+  for epoch in range(training_epochs):
+    average_reconstr_loss = 0.0
+    average_latent_loss0  = 0.0
+    average_latent_loss1  = 0.0
+    total_batch = int(n_samples / batch_size)
+    
+    # Loop over all batches
+    for i in range(total_batch):
+      # Get batch of images
+      batch_xs, batch_ys = data_manager.next_batch(batch_size, use_labels=True)
+      
+      # Fit training using batch data
+      reconstr_loss, latent_loss0, latent_loss1 = scan.partial_fit(session, batch_xs, batch_ys,
+                                                                   summary_writer, step)
+      
+      # Compute average loss
+      average_reconstr_loss += reconstr_loss / n_samples * batch_size
+      average_latent_loss0  += latent_loss0  / n_samples * batch_size
+      average_latent_loss1  += latent_loss1  / n_samples * batch_size
+
+      step += 1
+      
+     # Display logs per epoch step
+    if epoch % display_epoch == 0:
+      print("Epoch:", '%04d' % (epoch+1),
+            "reconstr=", "{:.3f}".format(average_reconstr_loss),
+            "latent0=",  "{:.3f}".format(average_latent_loss0),
+            "latent1=",  "{:.3f}".format(average_latent_loss1))
+
+    """
+    if epoch % 10 == 0:
+      reconstruct_xs = scan.reconstruct(session, batch_xs)
+      hsv_image = reconstruct_xs[0].reshape((80,80,3))
+      rgb_image = utils.convert_hsv_to_rgb(hsv_image)
+      plt.figure()
+      plt.imshow(rgb_image)
+      plt.savefig('reconstr.png')
+      plt.close()
+    """
+
+    # Save to checkpoint
+    if epoch % save_epoch == 0:
+      saver.save(session, epoch)
+
 
 def disentangle_check(session, vae, data_manager, save_original=True):
   hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
@@ -184,9 +241,11 @@ def main(argv):
 
   dae = DAE()
   vae = VAE(dae)
+  scan = SCAN(dae, vae)
 
-  dae_saver = CheckPointSaver(CHECKPOINT_DIR, "dae", dae.get_vars())
-  vae_saver = CheckPointSaver(CHECKPOINT_DIR, "vae", vae.get_vars())
+  dae_saver  = CheckPointSaver(CHECKPOINT_DIR, "dae",  dae.get_vars())
+  vae_saver  = CheckPointSaver(CHECKPOINT_DIR, "vae",  vae.get_vars())
+  scan_saver = CheckPointSaver(CHECKPOINT_DIR, "scan", scan.get_vars())
 
   sess = tf.Session()
 
@@ -200,12 +259,15 @@ def main(argv):
   # Load from checkpoint
   dae_saver.load(sess)
   vae_saver.load(sess)
+  scan_saver.load(sess)
 
   # Train
-  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
-  train_vae(sess, vae, data_manager, vae_saver, summary_writer)
+  #..train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+  #..train_vae(sess, vae, data_manager, vae_saver, summary_writer)
 
-  disentangle_check(sess, vae, data_manager)
+  #..disentangle_check(sess, vae, data_manager)
+
+  train_scan(sess, scan, data_manager, scan_saver, summary_writer)
 
   sess.close()
   

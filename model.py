@@ -360,14 +360,14 @@ class VAE(AE):
 class SCAN(AE):
   """ SCAN Auto Encoder. """
 
-  def __init__(self, vae, beta=1.0, lambd=10.0, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, dae, vae, beta=1.0, lambd=10.0, learning_rate=1e-4, epsilon=1e-8):
 
     self.beta = beta
     self.lambd = lambd
     self.learning_rate = learning_rate
     self.epsilon = epsilon
 
-    self._create_network(vae)
+    self._create_network(dae, vae)
     self._create_loss_optimizer()
 
     
@@ -390,11 +390,12 @@ class SCAN(AE):
       W_fc2, b_fc2 = self._fc_weight_variable([100, 51], "fc2")
 
       h_fc1 = tf.nn.relu(tf.matmul(z,     W_fc1) + b_fc1)
-      y_out = tf.sigmoid(tf.matmul(h_fc1, W_fc2) + b_fc2)
-      return y_out
+      y_out_logit = tf.matmul(h_fc1, W_fc2) + b_fc2
+      y_out = tf.sigmoid(y_out_logit)
+      return y_out_logit, y_out
 
     
-  def _create_network(self, vae):
+  def _create_network(self, dae, vae):
     # tf Graph input
     self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
     self.y = tf.placeholder("float", shape=[None, 51])
@@ -402,7 +403,7 @@ class SCAN(AE):
     with tf.variable_scope("scan"):
       self.z_mean, self.z_log_sigma_sq = self._create_recognition_network(self.y)
       self.z = self._sample_z(self.z_mean, self.z_log_sigma_sq)
-      self.y_out = self._create_generator_network(self.z)
+      self.y_out_logit, self.y_out = self._create_generator_network(self.z)
 
     with tf.variable_scope("vae", reuse=True):
       self.x_z_mean, self.x_z_log_sigma_sq = vae._create_recognition_network(self.x,
@@ -410,33 +411,62 @@ class SCAN(AE):
       self.x_z = self._sample_z(self.x_z_mean, self.x_z_log_sigma_sq)
       self.x_out = vae._create_generator_network(self.x_z, reuse=True)
 
+    with tf.variable_scope("dae", reuse=True):
+      self.z_out_d = dae._create_recognition_network(self.x_out, reuse=True)
+      self.x_out_d = dae._create_generator_network(self.z_out_d, reuse=True)
+
 
   def _kl(self, mu1, log_sigma1_sq, mu2, log_sigma2_sq):
     return tf.reduce_sum(0.5 * (log_sigma2_sq - log_sigma1_sq +
                                 tf.exp(log_sigma1_sq - log_sigma2_sq) +
                                 tf.square(mu1 - mu2) / tf.exp(log_sigma2_sq) -
-                                1), axis=-1)
+                                1))
 
   
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    # TODO: USE sigmoid_cross_entropy_with_logits
-    reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.y - self.y_out) )
+    self.reconstr_loss = tf.reduce_sum(
+      tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.y_out_logit))
+
+    reconstr_loss_summary_op = tf.summary.scalar('scan_reconstr_loss', self.reconstr_loss)
 
     # Latent loss
-    latent_loss = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
-                                                   - tf.square(self.z_mean) 
-                                                   - tf.exp(self.z_log_sigma_sq))
-    latent_loss2 = self.lambd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
-                                         self.z_mean, self.z_log_sigma_sq)
+    self.latent_loss0 = self.beta * -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
+                                                         - tf.square(self.z_mean)
+                                                         - tf.exp(self.z_log_sigma_sq))
+    self.latent_loss1 = self.lambd * self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
+                                              self.z_mean, self.z_log_sigma_sq)
 
-    self.loss = reconstr_loss + latent_loss + latent_loss2
+    latent_loss0_summary_op = tf.summary.scalar('scan_latent_loss0', self.latent_loss0)
+    latent_loss1_summary_op = tf.summary.scalar('scan_latent_loss1', self.latent_loss1)
+
+    self.summary_op = tf.summary.merge([reconstr_loss_summary_op,
+                                        latent_loss0_summary_op,
+                                        latent_loss1_summary_op])
+
+    self.loss = self.reconstr_loss + self.latent_loss0 + self.latent_loss1
     
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan")
     
     self.optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
       epsilon=self.epsilon).minimize(self.loss, var_list=self.variables)
+
+    
+  def partial_fit(self, sess, xs, ys, summary_writer, step):
+    """Train model based on mini-batch of input data.
+    
+    Return loss of mini-batch.
+    """
+    _, reconstr_loss, latent_loss0, latent_loss1, summary_str = sess.run((self.optimizer,
+                                                                          self.reconstr_loss,
+                                                                          self.latent_loss0,
+                                                                          self.latent_loss1,
+                                                                          self.summary_op),
+                                                                         feed_dict={self.x: xs,
+                                                                                    self.y: ys})
+    summary_writer.add_summary(summary_str, step)
+    return reconstr_loss, latent_loss0, latent_loss1
 
   
   def get_vars(self):

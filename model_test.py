@@ -22,7 +22,7 @@ class ModelTest(tf.test.TestCase):
   def test_scan(self):
     dae = DAE()
     vae = VAE(dae)
-    scan = SCAN(vae)
+    scan = SCAN(dae, vae)
 
     vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "scan")
     # Check size of optimizing vars
