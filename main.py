@@ -194,7 +194,7 @@ def save_10_images(hsv_images, file_name):
     ax.spines['bottom'].set_visible(False)
     ax.imshow(rgb_image)
 
-  plt.savefig(file_name)
+  plt.savefig(file_name, bbox_inches='tight')
   plt.close(fig)
   plt.close()
 
