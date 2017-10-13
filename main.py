@@ -195,9 +195,10 @@ def train_scan(session,
       saver.save(session, epoch)
 
 
-def disentangle_check(session, vae, data_manager, save_original=True):
+def disentangle_check(session, vae, data_manager, save_original=False):
   hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
   rgb_image = utils.convert_hsv_to_rgb(hsv_image)
+  
   if save_original:
     toimage(rgb_image, cmin=0, cmax=1.0).save("original.png")
 
@@ -235,6 +236,24 @@ def disentangle_check(session, vae, data_manager, save_original=True):
         "disentangle_img/check_z{0}_{1}.png".format(target_z_index,ri))
 
 
+def sym2img_check(session, scan, data_manager):
+  y = data_manager.get_labels(-1, 0, -1, -1)
+  ys = [y]
+
+  if not os.path.exists("sym2img"):
+    os.mkdir("sym2img")
+
+  for i in range(10):
+    xs = scan.generate_from_labels(session, ys)
+    hsv_image = xs[0].reshape((80,80,3))
+    rgb_image = utils.convert_hsv_to_rgb(hsv_image)
+    plt.figure()
+    plt.imshow(rgb_image)    
+    file_name = "sym2img/sym2img_gen{}.png".format(i)
+    plt.savefig(file_name)
+    plt.close()
+
+
 def main(argv):
   data_manager = DataManager()
   data_manager.prepare()
@@ -262,12 +281,14 @@ def main(argv):
   scan_saver.load(sess)
 
   # Train
-  #..train_dae(sess, dae, data_manager, dae_saver, summary_writer)
-  #..train_vae(sess, vae, data_manager, vae_saver, summary_writer)
+  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+  train_vae(sess, vae, data_manager, vae_saver, summary_writer)
 
-  #..disentangle_check(sess, vae, data_manager)
-
+  disentangle_check(sess, vae, data_manager)
+  
   train_scan(sess, scan, data_manager, scan_saver, summary_writer)
+  
+  sym2img_check(sess, scan, data_manager)
 
   sess.close()
   

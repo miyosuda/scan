@@ -6,3 +6,4 @@ checkpoints*
 log
 *.png
 disentangle_img
+sym2img

@@ -399,7 +399,8 @@ class SCAN(AE):
     # tf Graph input
     self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
     self.y = tf.placeholder("float", shape=[None, 51])
-    
+
+    # Create SCAN training network
     with tf.variable_scope("scan"):
       self.z_mean, self.z_log_sigma_sq = self._create_recognition_network(self.y)
       self.z = self._sample_z(self.z_mean, self.z_log_sigma_sq)
@@ -414,6 +415,18 @@ class SCAN(AE):
     with tf.variable_scope("dae", reuse=True):
       self.z_out_d = dae._create_recognition_network(self.x_out, reuse=True)
       self.x_out_d = dae._create_generator_network(self.z_out_d, reuse=True)
+
+    # Create sym2img network
+    with tf.variable_scope("scan", reuse=True):
+      z_mean_s2i, z_log_sigma_sq_s2i = self._create_recognition_network(self.y, reuse=True)
+      z_s2i = self._sample_z(z_mean_s2i, z_log_sigma_sq_s2i)
+
+    with tf.variable_scope("vae", reuse=True):
+      x_s2i = vae._create_generator_network(z_s2i, reuse=True)
+
+    with tf.variable_scope("dae", reuse=True):
+      z_d_s2i = dae._create_recognition_network(x_s2i, reuse=True)
+      self.x_d_s2i = dae._create_generator_network(z_d_s2i, reuse=True)
 
 
   def _kl(self, mu1, log_sigma1_sq, mu2, log_sigma2_sq):
@@ -467,6 +480,12 @@ class SCAN(AE):
                                                                                     self.y: ys})
     summary_writer.add_summary(summary_str, step)
     return reconstr_loss, latent_loss0, latent_loss1
+
+
+  def generate_from_labels(self, sess, ys):
+    """ Generate image data from labels. """
+    return sess.run( self.x_d_s2i, 
+                     feed_dict={self.y: ys} )
 
   
   def get_vars(self):

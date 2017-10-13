@@ -81,7 +81,25 @@ class DataManager(object):
     masked_image[hmin:hmax,wmin:wmax,:] = 0.0
     return masked_image
 
+  
+  def get_labels(self, obj_color, wall_color, floor_color, obj_id):
+    labels = np.zeros(3+16*3, dtype=np.float32)
 
+    if obj_color >= 0:
+      labels[obj_color] = 1.0
+
+    if wall_color >= 0:
+      labels[16 + wall_color] = 1.0
+
+    if floor_color >= 0:
+      labels[32 + floor_color] = 1.0
+
+    if obj_id >= 0:
+      labels[48 + obj_id] = 1.0
+    
+    return labels
+
+  
   def _index_to_labels(self, index):
     obj_color = index % 16
     
@@ -93,13 +111,8 @@ class DataManager(object):
 
     index = index // 16
     obj_id = index % 3
-
-    labels = np.zeros(3+16*3, dtype=np.float32)
-    labels[obj_color] = 1.0
-    labels[16 + wall_color] = 1.0
-    labels[32 + floor_color] = 1.0
-    labels[48 + obj_id] = 1.0
-    return labels
+    
+    return self.get_labels(obj_color, wall_color, floor_color, obj_id)
     
     
   def next_batch(self, batch_size, use_labels=False):
