@@ -250,12 +250,24 @@ def disentangle_check(session, vae, data_manager, save_original=False):
     save_10_images(generated_images, file_name)
 
 
-def sym2img_check(session, scan, data_manager):
-  """ Check sym2img conversion """
-  y = data_manager.get_labels(wall_color=0)
+def sym2img_check_sub(session, scan, y, file_name):
   ys = [y] * 10
   xs = scan.generate_from_labels(session, ys)
-  save_10_images(xs, "sym2img.png")
+  save_10_images(xs, file_name)  
+
+def sym2img_check(session, scan, data_manager):
+  """ Check sym2img conversion """
+  y0 = data_manager.get_labels(wall_color=0)
+  sym2img_check_sub(session, scan, y0, "sym2img0.png")
+
+  y1 = data_manager.get_labels(wall_color=0, floor_color=0)
+  sym2img_check_sub(session, scan, y1, "sym2img1.png")
+
+  y2 = data_manager.get_labels(wall_color=0, floor_color=0, obj_color=0)
+  sym2img_check_sub(session, scan, y2, "sym2img2.png")
+
+  y3 = data_manager.get_labels(wall_color=0, floor_color=0, obj_color=0, obj_id=0)
+  sym2img_check_sub(session, scan, y3, "sym2img3.png")
 
 
 def img2sym_check(session, scan, data_manager):
