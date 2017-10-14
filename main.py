@@ -269,19 +269,29 @@ def sym2img_check(session, scan, data_manager):
   y3 = data_manager.get_labels(wall_color=0, floor_color=0, obj_color=0, obj_id=0)
   sym2img_check_sub(session, scan, y3, "sym2img3.png")
 
-
-def img2sym_check(session, scan, data_manager):
-  """ Check img2sym conversion """
-  hsv_image = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+def img2sym_check_sub(session, scan, data_manager, hsv_image):
   batch_xs = [hsv_image] * 10
 
-  ys = scan.generate_from_images(session, batch_xs)  
+  ys = scan.generate_from_images(session, batch_xs)
   for y in ys:
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(y)
     print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
                                                                           wall_color,
                                                                           floor_color,
                                                                           obj_id))
+
+def img2sym_check(session, scan, data_manager):
+  """ Check img2sym conversion """
+  hsv_image0 = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+  #rgb_image0 = utils.convert_hsv_to_rgb(hsv_image0)
+  #utils.save_image(rgb_image0, "img2sym0.png")
+  img2sym_check_sub(session, scan, data_manager, hsv_image0)
+
+  hsv_image1 = data_manager.get_image(obj_color=10, wall_color=12, floor_color=5, obj_id=1)
+  #rgb_image1 = utils.convert_hsv_to_rgb(hsv_image1)
+  #utils.save_image(rgb_image1, "img2sym1.png")
+  img2sym_check_sub(session, scan, data_manager, hsv_image1)
+
 
 def main(argv):
   data_manager = DataManager()
