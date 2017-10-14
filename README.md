@@ -2,7 +2,7 @@
 
 ## About
 
-Replicating SCAN algorithm described in Google Deep Mind's paper ["SCAN: Learning Abstract Hierarchical Compositional Visual Concepts"](https://arxiv.org/abs/1707.03389)
+Replicating SCAN algorithm described in Google DeepMind's paper ["SCAN: Learning Abstract Hierarchical Compositional Visual Concepts"](https://arxiv.org/abs/1707.03389)
 
 
 
@@ -44,6 +44,16 @@ Symbol to image conversion result.
 4) Generated images when `wall_color=white, floor_color=white, obj_color=white, obj_id=ice_lolly` are specified.
 
 ![](doc/sym2img/img3.png)
+
+### Img2sym
+
+Input: ![](doc/img2sym/img0.png) -> Output: `obj_color=white, wall_color=white, floor_color=white, obj_id=ice_lolly`
+
+(All of the outputs are correct.)
+
+Input: ![](doc/img2sym/img1.png) -> Output: `obj_color=purple, wall_color=dark_yellow, obj_id=hat`
+
+(Correct `obj_color` was `red`, but confused as `purple`. `floor_color` was not specifiled in the output.)
 
 
 ### βVAE disentanglement
