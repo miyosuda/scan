@@ -25,19 +25,9 @@ $ python main.py
 
 ## Result
 
-### βVAE disentanglement
-
-![](doc/disentangle/z8.png) Wall color
-
-![](doc/disentangle/z10.png) Obj color
-
-![](doc/disentangle/z14.png) Floor color
-
-![](doc/disentangle/z0.png) Obj Type
-
-![](doc/disentangle/z18.png) Obj pos (and Obj Type)
-
 ### Sym2img
+
+Symbol to image conversion result.
 
 1) Generated images when `wall_color=white` is specified.
 
@@ -54,6 +44,21 @@ $ python main.py
 4) Generated images when `wall_color=white, floor_color=white, obj_color=white, obj_id=ice_lolly` are specified.
 
 ![](doc/sym2img/img3.png)
+
+
+### βVAE disentanglement
+
+Disentanglement result for latent variables for object parameters. (Wall color, Object color, Floor Color, Object Type, Object position).
+
+![](doc/disentangle/z8.png) Wall color
+
+![](doc/disentangle/z10.png) Obj color
+
+![](doc/disentangle/z14.png) Floor color
+
+![](doc/disentangle/z0.png) Obj Type
+
+![](doc/disentangle/z18.png) Obj pos (and Obj Type)
 
 
 
