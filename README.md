@@ -23,3 +23,17 @@ $ tar xvf data.tar.gz
 $ python main.py
 ```
 
+## Result
+
+### βVAE disentanglement
+
+![](doc/disentangle/z8.png) Wall color
+
+![](doc/disentangle/z10.png) Obj color
+
+![](doc/disentangle/z14.png) Floor color
+
+![](doc/disentangle/z0.png) Obj Type
+
+![](doc/disentangle/z18.png) Obj pos (and Obj Type)
+
