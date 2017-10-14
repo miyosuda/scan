@@ -138,7 +138,7 @@ def train_scan(session,
                saver,
                summary_writer,
                batch_size=16,
-               training_epochs=3000,
+               training_epochs=1500,
                display_epoch=1,
                save_epoch=50):
 
@@ -176,6 +176,11 @@ def train_scan(session,
     # Save to checkpoint
     if epoch % save_epoch == 0:
       saver.save(session, epoch)
+
+    # Check sym2img and img2sym
+    if epoch % 100 == 0:
+      sym2img_check(session, scan, data_manager)
+      img2sym_check(session, scan, data_manager)
 
 
 def save_10_images(hsv_images, file_name):

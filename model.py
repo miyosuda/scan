@@ -212,7 +212,7 @@ class DAE(AE):
 class VAE(AE):
   """ Beta Variational Auto Encoder. """
   
-  def __init__(self, dae, beta=1.0, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, dae, beta=0.5, learning_rate=1e-4, epsilon=1e-8):
     AE.__init__(self)
 
     self.beta = beta
@@ -361,7 +361,8 @@ class SCAN(AE):
   """ SCAN Auto Encoder. """
 
   def __init__(self, dae, vae, beta=1.0, lambd=10.0, learning_rate=1e-4, epsilon=1e-8):
-
+    AE.__init__(self)
+    
     self.beta = beta
     self.lambd = lambd
     self.learning_rate = learning_rate
