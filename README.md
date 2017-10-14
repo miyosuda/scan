@@ -37,3 +37,24 @@ $ python main.py
 
 ![](doc/disentangle/z18.png) Obj pos (and Obj Type)
 
+### Sym2img
+
+1) Generated images when `wall_color=white` is specified.
+
+![](doc/sym2img/img0.png)
+
+2) Generated images when `wall_color=white, floor_color=white` are specified.
+
+![](doc/sym2img/img1.png)
+
+3) Generated images when `wall_color=white, floor_color=white, obj_color=white` are specified.
+
+![](doc/sym2img/img2.png)
+
+4) Generated images when `wall_color=white, floor_color=white, obj_color=white, obj_id=ice_lolly` are specified.
+
+![](doc/sym2img/img3.png)
+
+
+
+
