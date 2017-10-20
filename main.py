@@ -10,7 +10,8 @@ from scipy.misc import toimage
 import matplotlib.pyplot as plt
 from model import DAE, VAE, SCAN
 import utils
-from data_manager import DataManager, IMAGE_CAPACITY
+from data_manager import DataManager
+from data_manager import IMAGE_CAPACITY, OP_AND, OP_IN, OP_COMMON
 
 CHECKPOINT_DIR = 'checkpoints'
 LOG_FILE = './log/scan_log'

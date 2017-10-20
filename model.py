@@ -190,8 +190,8 @@ class DAE(ModelBase):
 
   def _create_network(self):
     # tf Graph input 
-    self.x     = tf.placeholder("float", shape=[None, 80, 80, 3]) # Masked image input
-    self.x_org = tf.placeholder("float", shape=[None, 80, 80, 3]) # Original image input
+    self.x     = tf.placeholder(tf.float32, shape=[None, 80, 80, 3]) # Masked image input
+    self.x_org = tf.placeholder(tf.float32, shape=[None, 80, 80, 3]) # Original image input
     
     with tf.variable_scope("dae"):
       self.z     = self._create_recognition_network(self.x)
@@ -298,7 +298,7 @@ class VAE(ModelBase):
     
   def _create_network(self, dae):
     # tf Graph input
-    self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
+    self.x = tf.placeholder(tf.float32, shape=[None, 80, 80, 3])
     
     with tf.variable_scope("vae"):
       self.z_mean, self.z_log_sigma_sq = self._create_recognition_network(self.x)
@@ -427,8 +427,8 @@ class SCAN(ModelBase):
     
   def _create_network(self, dae, vae):
     # tf Graph input
-    self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
-    self.y = tf.placeholder("float", shape=[None, 51])
+    self.x = tf.placeholder(tf.float32, shape=[None, 80, 80, 3])
+    self.y = tf.placeholder(tf.float32, shape=[None, 51])
 
     # Create SCAN training network
     with tf.variable_scope("scan"):
@@ -540,10 +540,10 @@ class SCANRecombinator(ModelBase):
 
   def _create_network(self, vae, scan):
     # tf Graph input
-    self.y0 = tf.placeholder("float", shape=[None, 51])
-    self.y1 = tf.placeholder("float", shape=[None, 51])
-    self.x = tf.placeholder("float", shape=[None, 80, 80, 3])
-    self.h = tf.placeholder("float", shape=[3])
+    self.y0 = tf.placeholder(tf.float32, shape=[None, 51])
+    self.y1 = tf.placeholder(tf.float32, shape=[None, 51])
+    self.x = tf.placeholder(tf.float32, shape=[None, 80, 80, 3])
+    self.h = tf.placeholder(tf.int32, shape=[])
 
     with tf.variable_scope("scan", reuse=True):
       z_mean0, z_log_sigma_sq0 = scan._create_recognition_network(self.y0)
@@ -553,17 +553,18 @@ class SCANRecombinator(ModelBase):
       # (-1,32,4)
 
     with tf.variable_scope("scan_recomb"):
-      h_reshaped = tf.reshape(self.h, [1,3])      
+      h_onehot = tf.one_hot(indices=self.h, depth = 3)
+      h_onehot_reshaped = tf.reshape(h_onehot, [1,3])      
       
       W_fc_w, b_fc_w = self._fc_weight_variable([3, 8], "fc_w")  # (3,8)  (8,)
       W_fc_b, b_fc_b = self._fc_weight_variable([3, 2], "fc_b")  # (3,2)  (2,)
       
-      W_conv1 = tf.matmul(h_reshaped, W_fc_w) + b_fc_w # (1,8)
-      b_conv1 = tf.matmul(h_reshaped, W_fc_b) + b_fc_b # (1,2)
+      W_conv1 = tf.matmul(h_onehot_reshaped, W_fc_w) + b_fc_w # (1,8)
+      b_conv1 = tf.matmul(h_onehot_reshaped, W_fc_b) + b_fc_b # (1,2)
 
       W_conv1 = tf.reshape(W_conv1, [1, 4, 2]) # (1,4,2)
       b_conv1 = tf.reshape(b_conv1, [2])       # (2,)
-
+      
       h_conv1 = tf.nn.conv1d(z_stacked, W_conv1, stride=1, padding='SAME') + b_conv1
       # (-1,32,2)
 
@@ -618,7 +619,7 @@ class SCANRecombinator(ModelBase):
     return sess.run( self.y_out,
                      feed_dict={self.y0: ys0,
                                 self.y1: ys1,
-                                self.h:h} )
+                                self.h: h} )
   
   
   def get_vars(self):
