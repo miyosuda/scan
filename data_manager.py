@@ -103,13 +103,12 @@ class DataManager(object):
     return ret
   
   
-  def choose_random_triplet_for_op(self, op_type):
+  def _choose_op_triplet(self, op_type):
     param_sizes = [8, 8, 8, 3]
     
-    param0 = [-1, -1, -1, -1] # input0
-    param1 = [-1, -1, -1, -1] # input1
-    param_out = [-1, -1, -1, -1] # output        
-    
+    param0    = [-1, -1, -1, -1] # input0
+    param1    = [-1, -1, -1, -1] # input1
+    param_out = [-1, -1, -1, -1] # output
     
     if op_type == OP_AND:
       taret_type0 = np.random.randint(4)
@@ -144,7 +143,7 @@ class DataManager(object):
             param1[i] = np.random.randint(param_sizes[i])
 
     elif op_type == OP_IGNORE:
-      target_size0 = np.random.randint(1, 5) # 1,2,3,4
+      target_size0 = np.random.randint(2, 5) # 1,2,3,4
       target_types0 = self._choose_indices(4, target_size0) # not sorted
       ignore_target_type = target_types0[0]
         
@@ -158,7 +157,23 @@ class DataManager(object):
 
     return param0, param1, param_out
 
+  
+  def get_op_training_batch(self, batch_size, op_type):
+    ys0 = []
+    ys1 = []
+    xs = []
     
+    for i in range(batch_size):
+      param0, param1, param_out = self._choose_op_triplet(op_type)
+      y0 = self.get_labels(param0[0], param0[1], param0[2], param0[3])
+      y1 = self.get_labels(param1[0], param1[1], param1[2], param1[3])
+      x = self.get_image(param_out[0], param_out[1], param_out[2], param_out[3])
+      ys0.append(y0)
+      ys1.append(y1)
+      xs.append(x)
+    return ys0, ys1, xs
+
+      
   def get_labels(self, obj_color=-1, wall_color=-1, floor_color=-1, obj_id=-1):
     """ Get labels (float array with 51 values of 0.0 or 1.0) by specifing each elements. 
     If element is -1, it means that element (color or object type) is not specified.

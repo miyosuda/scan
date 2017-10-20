@@ -6,6 +6,7 @@ from __future__ import print_function
 import numpy as np
 import unittest
 from data_manager import DataManager
+from data_manager import OP_AND, OP_IN_COMMON, OP_IGNORE
 
 
 class DataManagerTest(unittest.TestCase):
@@ -84,7 +85,71 @@ class DataManagerTest(unittest.TestCase):
         labels[i] == 1.0
       else:
         labels[i] == 0.0
-    
+
+
+  def test_choose_op_triplet(self):
+    data_manager = DataManager()
+
+    # Check AND operator
+    op = OP_AND
+    for _ in range(100):
+      param0, param1, param_out = data_manager._choose_op_triplet(op)
+
+      self.assertEqual( len(param0), 4 )
+      self.assertEqual( len(param1), 4 )
+      self.assertEqual( len(param_out), 4 )
+      
+      for i in range(4):
+        p0 = param0[i]
+        p1 = param1[i]
+        p_out = param_out[i]
+        p = -1
+        if p0 != -1:
+          p = p0
+        if p1 != -1:
+          p = p1
+        self.assertEqual( p, p_out )
+
+    # Check IN_COMMON operator
+    op = OP_IN_COMMON
+    for _ in range(100):
+      param0, param1, param_out = data_manager._choose_op_triplet(op)
+
+      self.assertEqual( len(param0), 4 )
+      self.assertEqual( len(param1), 4 )
+      self.assertEqual( len(param_out), 4 )
+      
+      for i in range(4):
+        p0 = param0[i]
+        p1 = param1[i]
+        p_out = param_out[i]
+        if p0 != -1:
+          if p0 == p1:
+            self.assertEqual( p0, p_out )
+          else:
+            self.assertNotEqual( p0, p_out )
+        
+    # Check IGNORE_OP operator
+    op = OP_IGNORE
+    for _ in range(100):
+      param0, param1, param_out = data_manager._choose_op_triplet(op)
+
+      self.assertEqual( len(param0), 4 )
+      self.assertEqual( len(param1), 4 )
+      self.assertEqual( len(param_out), 4 )
+      
+      for i in range(4):
+        p0 = param0[i]
+        p1 = param1[i]
+        p_out = param_out[i]
+        if p0 != -1:
+          if p1 != -1:
+            self.assertEqual( p_out, -1 )
+          else:
+            self.assertEqual( p_out, p0 )
+        else:
+            self.assertEqual( p_out, -1 )
+      
 
 if __name__ == '__main__':
   unittest.main()
