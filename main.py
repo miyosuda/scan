@@ -8,15 +8,15 @@ import numpy as np
 import os
 from scipy.misc import toimage
 import matplotlib.pyplot as plt
-from model import DAE, VAE, SCAN
+from model import DAE, VAE, SCAN, SCANRecombinator
 import utils
 from data_manager import DataManager
-from data_manager import IMAGE_CAPACITY, OP_AND, OP_IN, OP_COMMON
+from data_manager import IMAGE_CAPACITY, OP_AND, OP_IN_COMMON, OP_IGNORE
+from options import get_options
 
-CHECKPOINT_DIR = 'checkpoints'
-LOG_FILE = './log/scan_log'
 
-n_samples = IMAGE_CAPACITY
+flags = get_options()
+
 
 class CheckPointSaver(object):
   def __init__(self, directory, name, variables):
@@ -49,11 +49,13 @@ def train_dae(session,
               display_epoch=1,
               save_epoch=50):
 
+  print("start training DAE")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_loss = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -65,7 +67,7 @@ def train_dae(session,
                              summary_writer, step)
       
       # Compute average loss
-      average_loss += loss / n_samples * batch_size
+      average_loss += loss / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -94,12 +96,14 @@ def train_vae(session,
               display_epoch=1,
               save_epoch=50):
 
+  print("start training Beta-VAE")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_reconstr_loss = 0.0
     average_latent_loss   = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -111,8 +115,8 @@ def train_vae(session,
                                                    summary_writer, step)
       
       # Compute average loss
-      average_reconstr_loss += reconstr_loss / n_samples * batch_size
-      average_latent_loss   += latent_loss   / n_samples * batch_size
+      average_reconstr_loss += reconstr_loss / IMAGE_CAPACITY * batch_size
+      average_latent_loss   += latent_loss   / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -143,13 +147,15 @@ def train_scan(session,
                display_epoch=1,
                save_epoch=50):
 
+  print("start training SCAN")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_reconstr_loss = 0.0
     average_latent_loss0  = 0.0
     average_latent_loss1  = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -161,9 +167,9 @@ def train_scan(session,
                                                                    summary_writer, step)
       
       # Compute average loss
-      average_reconstr_loss += reconstr_loss / n_samples * batch_size
-      average_latent_loss0  += latent_loss0  / n_samples * batch_size
-      average_latent_loss1  += latent_loss1  / n_samples * batch_size
+      average_reconstr_loss += reconstr_loss / IMAGE_CAPACITY * batch_size
+      average_latent_loss0  += latent_loss0  / IMAGE_CAPACITY * batch_size
+      average_latent_loss1  += latent_loss1  / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -182,6 +188,48 @@ def train_scan(session,
     if epoch % 100 == 0:
       sym2img_check(session, scan, data_manager)
       img2sym_check(session, scan, data_manager)
+
+      
+def train_scan_recomb(session,
+                      scan_recomb,
+                      data_manager,
+                      saver,
+                      summary_writer,
+                      batch_size=100,
+                      training_epochs=100,
+                      display_epoch=1,
+                      save_epoch=10):
+
+  print("start training SCAN Recombinator")
+
+  step = 0
+  
+  for epoch in range(training_epochs):
+    average_loss = 0.0
+    total_batch = int(IMAGE_CAPACITY / batch_size)
+    
+    # Loop over all batches
+    for i in range(total_batch):
+      # Get batch of images
+      op_type = i % 3
+      batch_ys0, batch_ys1, batch_xs = data_manager.get_op_training_batch(batch_size, op_type)
+      
+      # Fit training using batch data
+      loss = scan_recomb.partial_fit(session, batch_ys0, batch_ys1, batch_xs, op_type,
+                                     summary_writer, step)
+      
+      # Compute average loss
+      average_loss += loss / IMAGE_CAPACITY * batch_size
+
+      step += 1
+      
+     # Display logs per epoch step
+    if epoch % display_epoch == 0:
+      print("Epoch:", '%04d' % (epoch+1), "loss=", "{:.3f}".format(loss))
+
+    # Save to checkpoint
+    if epoch % save_epoch == 0:
+      saver.save(session, epoch)
 
 
 def save_10_images(hsv_images, file_name):
@@ -299,12 +347,14 @@ def main(argv):
   data_manager.prepare()
 
   dae = DAE()
-  vae = VAE(dae)
-  scan = SCAN(dae, vae)
+  vae = VAE(dae, beta=flags.vae_beta)
+  scan = SCAN(dae, vae, beta=flags.scan_beta, lambd=flags.scan_lambda)
+  scan_recomb = SCANRecombinator(vae, scan)
 
-  dae_saver  = CheckPointSaver(CHECKPOINT_DIR, "dae",  dae.get_vars())
-  vae_saver  = CheckPointSaver(CHECKPOINT_DIR, "vae",  vae.get_vars())
-  scan_saver = CheckPointSaver(CHECKPOINT_DIR, "scan", scan.get_vars())
+  dae_saver  = CheckPointSaver(flags.checkpoint_dir, "dae",  dae.get_vars())
+  vae_saver  = CheckPointSaver(flags.checkpoint_dir, "vae",  vae.get_vars())
+  scan_saver = CheckPointSaver(flags.checkpoint_dir, "scan", scan.get_vars())
+  scan_recomb_saver = CheckPointSaver(flags.checkpoint_dir, "scan_recomb", scan_recomb.get_vars())
 
   sess = tf.Session()
 
@@ -313,23 +363,29 @@ def main(argv):
   sess.run(init)
 
   # For Tensorboard log
-  summary_writer = tf.summary.FileWriter(LOG_FILE, sess.graph)
+  summary_writer = tf.summary.FileWriter(flags.log_file, sess.graph)
 
   # Load from checkpoint
   dae_saver.load(sess)
   vae_saver.load(sess)
   scan_saver.load(sess)
+  scan_recomb_saver.load(sess)
 
   # Train
-  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
-  train_vae(sess, vae, data_manager, vae_saver, summary_writer)
-  
-  disentangle_check(sess, vae, data_manager)
-  
-  train_scan(sess, scan, data_manager, scan_saver, summary_writer)
-  
-  sym2img_check(sess, scan, data_manager)
-  img2sym_check(sess, scan, data_manager)
+  if flags.train_dae:
+    train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+
+  if flags.train_vae:
+    train_vae(sess, vae, data_manager, vae_saver, summary_writer)
+    disentangle_check(sess, vae, data_manager)
+
+  if flags.train_scan:
+    train_scan(sess, scan, data_manager, scan_saver, summary_writer)
+    sym2img_check(sess, scan, data_manager)
+    img2sym_check(sess, scan, data_manager)
+
+  if flags.train_scan_recomb:
+    train_scan_recomb(sess, scan_recomb, data_manager, scan_recomb_saver, summary_writer)
 
   sess.close()
   

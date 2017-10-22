@@ -603,13 +603,13 @@ class SCANRecombinator(ModelBase):
     
     Return loss of mini-batch.
     """
-    loss, summary_str = sess.run((self.optimizer,
-                                  self.loss,
-                                  self.summary_op),
-                                 feed_dict={self.y0: ys0,
-                                            self.y1: ys1,
-                                            self.h: h,
-                                            self.x: xs})
+    _, loss, summary_str  = sess.run((self.optimizer,
+                                      self.loss,
+                                      self.summary_op),
+                                     feed_dict={self.y0: ys0,
+                                                self.y1: ys1,
+                                                self.h: h,
+                                                self.x: xs})
     summary_writer.add_summary(summary_str, step)
     return loss
 
