@@ -342,6 +342,40 @@ def img2sym_check(session, scan, data_manager):
   img2sym_check_sub(session, scan, data_manager, hsv_image1)
 
 
+def recombination_check(session, scan_recomb, data_manager):
+  # Check OP_AND
+  y0 = data_manager.get_labels(obj_color=0)
+  y1 = data_manager.get_labels(obj_id=0)
+  ys = scan_recomb.recombinate(session, [y0], [y1], OP_AND)
+  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
+  print("OP_AND")
+  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                        wall_color,
+                                                                        floor_color,
+                                                                        obj_id))
+
+  # Check OP_IN_COMMON
+  y0 = data_manager.get_labels(obj_color=0, obj_id=0)
+  y1 = data_manager.get_labels(wall_color=0, obj_id=0)
+  ys = scan_recomb.recombinate(session, [y0], [y1], OP_IN_COMMON)
+  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
+  print("OP_IN_COMMON")
+  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                        wall_color,
+                                                                        floor_color,
+                                                                        obj_id))
+
+  # Check OP_IGNORE
+  y0 = data_manager.get_labels(obj_color=0, obj_id=0)
+  y1 = data_manager.get_labels(obj_color=0)
+  ys = scan_recomb.recombinate(session, [y0], [y1], OP_IN_COMMON)
+  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
+  print("OP_IGNORE")
+  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                        wall_color,
+                                                                        floor_color,
+                                                                        obj_id))
+
 def main(argv):
   data_manager = DataManager()
   data_manager.prepare()
@@ -377,18 +411,22 @@ def main(argv):
 
   if flags.train_vae:
     train_vae(sess, vae, data_manager, vae_saver, summary_writer)
-    disentangle_check(sess, vae, data_manager)
+
+  disentangle_check(sess, vae, data_manager)
 
   if flags.train_scan:
     train_scan(sess, scan, data_manager, scan_saver, summary_writer)
-    sym2img_check(sess, scan, data_manager)
-    img2sym_check(sess, scan, data_manager)
+
+  sym2img_check(sess, scan, data_manager)
+  img2sym_check(sess, scan, data_manager)
 
   if flags.train_scan_recomb:
     train_scan_recomb(sess, scan_recomb, data_manager, scan_recomb_saver, summary_writer)
 
+  recombination_check(sess, scan_recomb, data_manager)
+
   sess.close()
-  
+
 
 if __name__ == '__main__':
   tf.app.run()
