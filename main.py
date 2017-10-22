@@ -82,7 +82,7 @@ def train_dae(session,
       utils.save_image(rgb_image, "reconstr.png")
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
       
 
@@ -133,7 +133,7 @@ def train_vae(session,
       utils.save_image(rgb_image, "reconstr.png")
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
 
 
@@ -181,7 +181,7 @@ def train_scan(session,
             "latent1=",  "{:.3f}".format(average_latent_loss1))
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
 
     # Check sym2img and img2sym
@@ -228,7 +228,7 @@ def train_scan_recomb(session,
       print("Epoch:", '%04d' % (epoch+1), "loss=", "{:.3f}".format(loss))
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
 
 
