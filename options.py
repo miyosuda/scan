@@ -12,7 +12,7 @@ def get_options():
   tf.app.flags.DEFINE_boolean("train_scan", True, "whether to train SCAN")
   tf.app.flags.DEFINE_boolean("train_scan_recomb", True, "whether to train SCAN Recombinator")
 
-  tf.app.flags.DEFINE_float("vae_beta", 1.0, "Beta-VAE beta hyper parameter")
+  tf.app.flags.DEFINE_float("vae_beta", 53.0, "Beta-VAE beta hyper parameter")
   tf.app.flags.DEFINE_float("scan_beta", 1.0, "SCAN beta hyper parameter")
   tf.app.flags.DEFINE_float("scan_lambda", 10.0, "SCAN lambda hyper parameter")  
   
