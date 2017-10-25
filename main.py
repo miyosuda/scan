@@ -332,11 +332,13 @@ def img2sym_check_sub(session, scan, data_manager, hsv_image):
 def img2sym_check(session, scan, data_manager):
   """ Check img2sym conversion """
   hsv_image0 = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+  print("img2sym: obj_color=0, wall_color=0, floor_color=0, obj_id=0")
   #rgb_image0 = utils.convert_hsv_to_rgb(hsv_image0)
   #utils.save_image(rgb_image0, "img2sym0.png")
   img2sym_check_sub(session, scan, data_manager, hsv_image0)
 
   hsv_image1 = data_manager.get_image(obj_color=10, wall_color=12, floor_color=5, obj_id=1)
+  print("img2sym: obj_color=10, wall_color=12, floor_color=5, obj_id=1")
   #rgb_image1 = utils.convert_hsv_to_rgb(hsv_image1)
   #utils.save_image(rgb_image1, "img2sym1.png")
   img2sym_check_sub(session, scan, data_manager, hsv_image1)
