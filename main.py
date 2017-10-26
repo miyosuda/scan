@@ -281,22 +281,20 @@ def disentangle_check(session, vae, data_manager, save_original=False):
     os.mkdir("disentangle_img")
 
   for target_z_index in range(n_z):
-    generated_images = []
+    z_mean2 = np.zeros((10, n_z))
     
     for ri in range(10):
       # Change z mean value from -3.0 to +3.0
       value = -3.0 + (6.0 / 9.0) * ri
-      z_mean2 = np.zeros((1, n_z))
+
       for i in range(n_z):
         if( i == target_z_index ):
-          z_mean2[0][i] = value
+          z_mean2[ri][i] = value
         else:
-          z_mean2[0][i] = z_m[i]
-      generated_xs = vae.generate(session, z_mean2)
-      generated_images.append(generated_xs)
-
+          z_mean2[ri][i] = z_m[i]
+    generated_xs = vae.generate(session, z_mean2)
     file_name = "disentangle_img/check_z{0}.png".format(target_z_index)
-    save_10_images(generated_images, file_name)
+    save_10_images(generated_xs, file_name)
 
 
 def sym2img_check_sub(session, scan, y, file_name):
