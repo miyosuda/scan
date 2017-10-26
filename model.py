@@ -165,7 +165,7 @@ class DAE(ModelBase):
       return z
 
   
-  def _create_generator_network(self, z, reuse=False, for_vae_loss=False):
+  def _create_generator_network(self, z, reuse=False):
     with tf.variable_scope("gen", reuse=reuse) as scope:
       W_fc1, b_fc1 = self._fc_weight_variable([100, 5 * 5 * 64], "fc1")
       
@@ -184,12 +184,8 @@ class DAE(ModelBase):
       h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
       h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
       h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
-      h_deconv4 = self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4
-      x_out = tf.sigmoid(h_deconv4)
-      if for_vae_loss:
-        return x_out, h_deconv4
-      else:
-        return x_out
+      x_out =    tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      return x_out
 
 
   def _create_network(self):
@@ -313,15 +309,15 @@ class VAE(ModelBase):
       self.x_out = self._create_generator_network(self.z)
 
     with tf.variable_scope("dae", reuse=True):
-      z_d     = dae._create_recognition_network(self.x,     reuse=True)
-      z_out_d = dae._create_recognition_network(self.x_out, reuse=True)
-      self.x_d, self.x_d_t         = dae._create_generator_network(z_d,     reuse=True, for_vae_loss=True)
-      self.x_out_d, self.x_out_d_t = dae._create_generator_network(z_out_d, reuse=True, for_vae_loss=True)
+      self.z_d     = dae._create_recognition_network(self.x,     reuse=True)
+      self.z_out_d = dae._create_recognition_network(self.x_out, reuse=True)
+      self.x_d     = dae._create_generator_network(self.z_d,     reuse=True)
+      self.x_out_d = dae._create_generator_network(self.z_out_d, reuse=True)
       
       
   def _create_loss_optimizer(self):
     # Reconstruction loss
-    self.reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.x_d_t - self.x_out_d_t) )
+    self.reconstr_loss = 0.5 * tf.reduce_sum( tf.square(self.z_d - self.z_out_d) )
 
     reconstr_loss_summary_op = tf.summary.scalar('vae_reconstr_loss', self.reconstr_loss)
 

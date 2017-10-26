@@ -131,6 +131,9 @@ def train_vae(session,
       hsv_image = reconstruct_xs[0].reshape((80,80,3))
       rgb_image = utils.convert_hsv_to_rgb(hsv_image)
       utils.save_image(rgb_image, "reconstr.png")
+      
+    if epoch % 100 == 99:
+      disentangle_check(session, vae, data_manager)
 
     # Save to checkpoint
     if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
