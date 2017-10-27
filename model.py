@@ -60,9 +60,11 @@ class ModelBase(object):
     bias_shape = [output_channels]
   
     weight = tf.get_variable(name_w, weight_shape,
-                             initializer=conv_initializer(w, 1, input_channels))
+                             initializer=fc_initializer(input_channels))
+                             #initializer=conv_initializer(w, 1, input_channels))
     bias   = tf.get_variable(name_b, bias_shape,
-                             initializer=conv_initializer(w, 1, input_channels))
+                             initializer=fc_initializer(input_channels))
+                             #initializer=conv_initializer(w, 1, input_channels))
     return weight, bias
 
 
