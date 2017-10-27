@@ -60,9 +60,11 @@ class ModelBase(object):
     bias_shape = [output_channels]
   
     weight = tf.get_variable(name_w, weight_shape,
-                             initializer=conv_initializer(w, 1, input_channels))
+                             initializer=fc_initializer(input_channels))
+                             #initializer=conv_initializer(w, 1, input_channels))
     bias   = tf.get_variable(name_b, bias_shape,
-                             initializer=conv_initializer(w, 1, input_channels))
+                             initializer=fc_initializer(input_channels))
+                             #initializer=conv_initializer(w, 1, input_channels))
     return weight, bias
 
 
@@ -184,7 +186,7 @@ class DAE(ModelBase):
       h_deconv1 = tf.nn.elu(self._deconv2d(h_fc1_reshaped, W_deconv1, 5, 5, 2) + b_deconv1)
       h_deconv2 = tf.nn.elu(self._deconv2d(h_deconv1, W_deconv2, 10, 10, 2) + b_deconv2)
       h_deconv3 = tf.nn.elu(self._deconv2d(h_deconv2, W_deconv3, 20, 20, 2) + b_deconv3)
-      x_out = tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
+      x_out =    tf.sigmoid(self._deconv2d(h_deconv3, W_deconv4, 40, 40, 2) + b_deconv4)
       return x_out
 
 
@@ -238,7 +240,7 @@ class DAE(ModelBase):
 class VAE(ModelBase):
   """ Beta Variational Auto Encoder. """
   
-  def __init__(self, dae, beta=0.5, learning_rate=1e-4, epsilon=1e-8):
+  def __init__(self, dae, beta=53.0, learning_rate=1e-4, epsilon=1e-8):
     ModelBase.__init__(self)
 
     self.beta = beta
