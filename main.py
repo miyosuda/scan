@@ -347,9 +347,9 @@ def img2sym_check(session, scan, data_manager):
 def recombination_check(session, scan_recomb, data_manager):
   # Check OP_AND
   y0 = data_manager.get_labels(obj_color=0)
-  y1 = data_manager.get_labels(obj_id=0)
+  y1 = data_manager.get_labels(wall_color=0)
   ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
-  print("OP_AND")
+  print(">> OP_AND (obj_color=0, wall_color=0)")
   for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
     print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
@@ -359,9 +359,9 @@ def recombination_check(session, scan_recomb, data_manager):
 
   # Check OP_IN_COMMON
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
-  y1 = data_manager.get_labels(wall_color=0, obj_id=0)
+  y1 = data_manager.get_labels(obj_color=0, wall_color=0)
   ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
-  print("OP_IN_COMMON")
+  print(">> OP_IN_COMMON (obj_color=0)")
   for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
     print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
@@ -370,10 +370,10 @@ def recombination_check(session, scan_recomb, data_manager):
                                                                           obj_id))
 
   # Check OP_IGNORE
-  y0 = data_manager.get_labels(obj_color=0, obj_id=0)
+  y0 = data_manager.get_labels(obj_color=0, floor_color=0)
   y1 = data_manager.get_labels(obj_color=0)
-  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
-  print("OP_IGNORE")  
+  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
+  print(">> OP_IGNORE (floor_color=0)")
   for i in range(10):      
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
     print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,

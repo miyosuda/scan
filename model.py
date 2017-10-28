@@ -559,17 +559,23 @@ class SCANRecombinator(ModelBase):
       # (-1, 3)
       h_onehot = tf.reshape(h_onehot, [-1, 1, 3])
 
-      W_conv1, b_conv1 = self._conv1d_weight_variable([1, 4, 6], "conv1")
-      # (1,4,6), (6,)
-      h_conv1 = tf.nn.conv1d(z_stacked, W_conv1, stride=1, padding='SAME') + b_conv1
+      W_conv1, b_conv1 = self._conv1d_weight_variable([1, 4, 32], "conv1")
+      # (1,4,32), (32,)
+      W_conv2, b_conv2 = self._conv1d_weight_variable([1, 32, 6], "conv2")
+      # (1,32,6), (6,)
+      
+      
+      h_conv1 = tf.nn.relu(tf.nn.conv1d(z_stacked, W_conv1, stride=1, padding='SAME') + b_conv1)
+      # (-1,32,32)
+      h_conv2 = tf.nn.conv1d(h_conv1,   W_conv2, stride=1, padding='SAME') + b_conv2
       # (-1,32,6)
 
-      z_means, z_log_sigma_sqs = tf.split(h_conv1, num_or_size_splits=2, axis=2)
+      z_means, z_log_sigma_sqs = tf.split(h_conv2, num_or_size_splits=2, axis=2)
       # (-1,32,3) (-1,32,3)
 
       self.r_z_mean          = tf.reduce_sum(tf.multiply(z_means,         h_onehot), 2)
       self.r_z_log_sigma_sq  = tf.reduce_sum(tf.multiply(z_log_sigma_sqs, h_onehot), 2)
-      # (-1, 32)      
+      # (-1, 32)
       
       self.r_z = self._sample_z(self.r_z_mean, self.r_z_log_sigma_sq)
 
