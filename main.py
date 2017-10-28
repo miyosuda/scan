@@ -348,35 +348,38 @@ def recombination_check(session, scan_recomb, data_manager):
   # Check OP_AND
   y0 = data_manager.get_labels(obj_color=0)
   y1 = data_manager.get_labels(obj_id=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_AND])
-  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
+  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
   print("OP_AND")
-  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
-                                                                        wall_color,
-                                                                        floor_color,
-                                                                        obj_id))
+  for i in range(10):
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
 
   # Check OP_IN_COMMON
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
   y1 = data_manager.get_labels(wall_color=0, obj_id=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_IN_COMMON])
-  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
+  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
   print("OP_IN_COMMON")
-  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
-                                                                        wall_color,
-                                                                        floor_color,
-                                                                        obj_id))
+  for i in range(10):
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
 
   # Check OP_IGNORE
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
   y1 = data_manager.get_labels(obj_color=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_IN_COMMON])
-  obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
-  print("OP_IGNORE")
-  print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
-                                                                        wall_color,
-                                                                        floor_color,
-                                                                        obj_id))
+  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
+  print("OP_IGNORE")  
+  for i in range(10):      
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
 
 def main(argv):
   data_manager = DataManager()
