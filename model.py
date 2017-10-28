@@ -559,11 +559,10 @@ class SCANRecombinator(ModelBase):
       # (-1, 3)
       h_onehot = tf.reshape(h_onehot, [-1, 1, 3])
 
-      W_conv1, b_conv1 = self._conv1d_weight_variable([1, 4, 32], "conv1")
-      # (1,4,32), (32,)
-      W_conv2, b_conv2 = self._conv1d_weight_variable([1, 32, 6], "conv2")
-      # (1,32,6), (6,)
-      
+      W_conv1, b_conv1 = self._conv1d_weight_variable([1, 4, 1024], "conv1")
+      # (1,4,1024), (1024,)
+      W_conv2, b_conv2 = self._conv1d_weight_variable([1, 1024, 6], "conv2")
+      # (1,1024,6), (6,)
       
       h_conv1 = tf.nn.relu(tf.nn.conv1d(z_stacked, W_conv1, stride=1, padding='SAME') + b_conv1)
       # (-1,32,32)

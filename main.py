@@ -370,11 +370,11 @@ def recombination_check(session, scan_recomb, data_manager):
                                                                           obj_id))
 
   # Check OP_IGNORE
-  y0 = data_manager.get_labels(obj_color=0, floor_color=0)
+  y0 = data_manager.get_labels(obj_color=0, wall_color=0)
   y1 = data_manager.get_labels(obj_color=0)
   ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
-  print(">> OP_IGNORE (floor_color=0)")
-  for i in range(10):      
+  print(">> OP_IGNORE (wall_color=0)")
+  for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
     print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
                                                                           wall_color,
