@@ -36,7 +36,7 @@ class ModelTest(tf.test.TestCase):
 
     vars = scan_recomb.get_vars()
     # Check size of optimizing vars
-    self.assertEqual(len(vars), 4)
+    self.assertEqual(len(vars), 2)
 
 
 if __name__ == "__main__":

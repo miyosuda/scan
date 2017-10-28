@@ -214,11 +214,10 @@ def train_scan_recomb(session,
     # Loop over all batches
     for i in range(total_batch):
       # Get batch of images
-      op_type = i % 3
-      batch_ys0, batch_ys1, batch_xs = data_manager.get_op_training_batch(batch_size, op_type)
+      batch_ys0, batch_ys1, batch_xs, batch_hs = data_manager.get_op_training_batch(batch_size)
       
       # Fit training using batch data
-      loss = scan_recomb.partial_fit(session, batch_ys0, batch_ys1, batch_xs, op_type,
+      loss = scan_recomb.partial_fit(session, batch_ys0, batch_ys1, batch_xs, batch_hs,
                                      summary_writer, step)
       
       # Compute average loss
@@ -349,7 +348,7 @@ def recombination_check(session, scan_recomb, data_manager):
   # Check OP_AND
   y0 = data_manager.get_labels(obj_color=0)
   y1 = data_manager.get_labels(obj_id=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], OP_AND)
+  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_AND])
   obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
   print("OP_AND")
   print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
@@ -360,7 +359,7 @@ def recombination_check(session, scan_recomb, data_manager):
   # Check OP_IN_COMMON
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
   y1 = data_manager.get_labels(wall_color=0, obj_id=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], OP_IN_COMMON)
+  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_IN_COMMON])
   obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
   print("OP_IN_COMMON")
   print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
@@ -371,7 +370,7 @@ def recombination_check(session, scan_recomb, data_manager):
   # Check OP_IGNORE
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
   y1 = data_manager.get_labels(obj_color=0)
-  ys = scan_recomb.recombinate(session, [y0], [y1], OP_IN_COMMON)
+  ys = scan_recomb.recombinate(session, [y0], [y1], [OP_IN_COMMON])
   obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[0])
   print("OP_IGNORE")
   print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,

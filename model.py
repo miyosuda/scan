@@ -49,7 +49,7 @@ class ModelBase(object):
     return weight, bias
 
 
-  def _conv1d_weight_variable(weight_shape, name):
+  def _conv1d_weight_variable(self, weight_shape, name):
     name_w = "W_{0}".format(name)
     name_b = "b_{0}".format(name)
       
@@ -545,7 +545,7 @@ class SCANRecombinator(ModelBase):
     self.y0 = tf.placeholder(tf.float32, shape=[None, 51])
     self.y1 = tf.placeholder(tf.float32, shape=[None, 51])
     self.x = tf.placeholder(tf.float32, shape=[None, 80, 80, 3])
-    self.h = tf.placeholder(tf.int32, shape=[])
+    self.h = tf.placeholder(tf.int32, shape=[None])
 
     with tf.variable_scope("scan", reuse=True):
       z_mean0, z_log_sigma_sq0 = scan._create_recognition_network(self.y0)
@@ -556,29 +556,24 @@ class SCANRecombinator(ModelBase):
 
     with tf.variable_scope("scan_recomb"):
       h_onehot = tf.one_hot(indices=self.h, depth = 3)
-      h_onehot_reshaped = tf.reshape(h_onehot, [1,3])      
-      
-      W_fc_w, b_fc_w = self._fc_weight_variable([3, 8], "fc_w")  # (3,8)  (8,)
-      W_fc_b, b_fc_b = self._fc_weight_variable([3, 2], "fc_b")  # (3,2)  (2,)
-      
-      W_conv1 = tf.matmul(h_onehot_reshaped, W_fc_w) + b_fc_w # (1,8)
-      b_conv1 = tf.matmul(h_onehot_reshaped, W_fc_b) + b_fc_b # (1,2)
+      # (-1, 3)
+      h_onehot = tf.reshape(h_onehot, [-1, 1, 3])
 
-      W_conv1 = tf.reshape(W_conv1, [1, 4, 2]) # (1,4,2)
-      b_conv1 = tf.reshape(b_conv1, [2])       # (2,)
-      
+      W_conv1, b_conv1 = self._conv1d_weight_variable([1, 4, 6], "conv1")
+      # (1,4,6), (6,)
       h_conv1 = tf.nn.conv1d(z_stacked, W_conv1, stride=1, padding='SAME') + b_conv1
-      # (-1,32,2)
+      # (-1,32,6)
 
-      z_mean, z_log_sigma_sq = tf.split(h_conv1, num_or_size_splits=2, axis=2)
-      # (-1,32,1) (-1,32,1)
-      
-      self.r_z_mean         = tf.reshape(z_mean,         [-1, 32]) # (-1,32)
-      self.r_z_log_sigma_sq = tf.reshape(z_log_sigma_sq, [-1, 32]) # (-1,32)
+      z_means, z_log_sigma_sqs = tf.split(h_conv1, num_or_size_splits=2, axis=2)
+      # (-1,32,3) (-1,32,3)
+
+      self.r_z_mean          = tf.reduce_sum(tf.multiply(z_means,         h_onehot), 2)
+      self.r_z_log_sigma_sq  = tf.reduce_sum(tf.multiply(z_log_sigma_sqs, h_onehot), 2)
+      # (-1, 32)      
       
       self.r_z = self._sample_z(self.r_z_mean, self.r_z_log_sigma_sq)
 
-    with tf.variable_scope("scan", reuse=True):      
+    with tf.variable_scope("scan", reuse=True):
       _, self.y_out = scan._create_generator_network(self.r_z)
       
     with tf.variable_scope("vae", reuse=True):
@@ -616,12 +611,12 @@ class SCANRecombinator(ModelBase):
     return loss
 
   
-  def recombinate(self, sess, ys0, ys1, h):
+  def recombinate(self, sess, ys0, ys1, hs):
     """ Recominate labels. """
     return sess.run( self.y_out,
                      feed_dict={self.y0: ys0,
                                 self.y1: ys1,
-                                self.h: h} )
+                                self.h: hs} )
   
   
   def get_vars(self):

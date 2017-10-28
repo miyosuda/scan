@@ -158,12 +158,14 @@ class DataManager(object):
     return param0, param1, param_out
 
   
-  def get_op_training_batch(self, batch_size, op_type):
+  def get_op_training_batch(self, batch_size):
     ys0 = []
     ys1 = []
     xs = []
+    hs = []
     
     for i in range(batch_size):
+      op_type = np.random.randint(0,3)
       param0, param1, param_out = self._choose_op_triplet(op_type)
       y0 = self.get_labels(param0[0], param0[1], param0[2], param0[3])
       y1 = self.get_labels(param1[0], param1[1], param1[2], param1[3])
@@ -171,7 +173,8 @@ class DataManager(object):
       ys0.append(y0)
       ys1.append(y1)
       xs.append(x)
-    return ys0, ys1, xs
+      hs.append(op_type)
+    return ys0, ys1, xs, hs
 
       
   def get_labels(self, obj_color=-1, wall_color=-1, floor_color=-1, obj_id=-1):
