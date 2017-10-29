@@ -32,7 +32,7 @@ class ModelTest(tf.test.TestCase):
     dae = DAE()
     vae = VAE(dae)
     scan = SCAN(dae, vae)
-    scan_recomb = SCANRecombinator(vae, scan)
+    scan_recomb = SCANRecombinator(dae, vae, scan)
 
     vars = scan_recomb.get_vars()
     # Check size of optimizing vars

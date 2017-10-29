@@ -528,31 +528,33 @@ class SCAN(ModelBase):
 class SCANRecombinator(ModelBase):
   """ SCAN concept recombinator. """
 
-  def __init__(self, vae, scan, learning_rate=1e-3, epsilon=1e-8):
+  def __init__(self, dae, vae, scan, learning_rate=1e-3, epsilon=1e-8):
     ModelBase.__init__(self)
 
     self.learning_rate = learning_rate
     self.epsilon = epsilon
 
     # Create network
-    self._create_network(vae, scan)
+    self._create_network(dae, vae, scan)
 
     # Define loss function and corresponding optimizer
     self._create_loss_optimizer()
 
-  def _create_network(self, vae, scan):
+  def _create_network(self, dae, vae, scan):
     # tf Graph input
     self.y0 = tf.placeholder(tf.float32, shape=[None, 51])
     self.y1 = tf.placeholder(tf.float32, shape=[None, 51])
+    self.y  = tf.placeholder(tf.float32, shape=[None, 51])
     self.x = tf.placeholder(tf.float32, shape=[None, 80, 80, 3])
     self.h = tf.placeholder(tf.int32, shape=[None])
 
     with tf.variable_scope("scan", reuse=True):
       z_mean0, z_log_sigma_sq0 = scan._create_recognition_network(self.y0)
       z_mean1, z_log_sigma_sq1 = scan._create_recognition_network(self.y1)
-        
       z_stacked = tf.stack([z_mean0, z_mean1, z_log_sigma_sq0, z_log_sigma_sq1], axis=2)
       # (-1,32,4)
+      
+      self.y_z_mean, self.y_z_log_sigma_sq = scan._create_recognition_network(self.y)
 
     with tf.variable_scope("scan_recomb"):
       h_onehot = tf.one_hot(indices=self.h, depth = 3)
@@ -584,41 +586,79 @@ class SCANRecombinator(ModelBase):
     with tf.variable_scope("vae", reuse=True):
       self.x_z_mean, self.x_z_log_sigma_sq = vae._create_recognition_network(self.x,
                                                                              reuse=True)
+      x_tmp = vae._create_generator_network(self.r_z, reuse=True)
+      
+    with tf.variable_scope("dae", reuse=True):
+      z_d = dae._create_recognition_network(x_tmp, reuse=True)
+      self.x_out = dae._create_generator_network(z_d, reuse=True)
       
 
   def _create_loss_optimizer(self):
-    self.loss = self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
-                         self.r_z_mean, self.r_z_log_sigma_sq)
+    # Loss when training with image target
+    self.image_loss = self._kl(self.x_z_mean, self.x_z_log_sigma_sq,
+                               self.r_z_mean, self.r_z_log_sigma_sq)
+    # Loss when training with symbol target
+    self.symbol_loss = self._kl(self.y_z_mean, self.y_z_log_sigma_sq,
+                                self.r_z_mean, self.r_z_log_sigma_sq)
 
-    loss_summary_op = tf.summary.scalar('scan_recomb_loss', self.loss)
-    self.summary_op = tf.summary.merge([loss_summary_op])
+    self.image_loss_summary_op = tf.summary.scalar('scan_recomb_image_loss', self.image_loss)
+    self.symbol_loss_summary_op = tf.summary.scalar('scan_recomb_image_loss', self.symbol_loss)
 
     self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="scan_recomb")
-    
-    self.optimizer = tf.train.AdamOptimizer(
+
+    # Optimizer for training with image target
+    self.image_optimizer = tf.train.AdamOptimizer(
       learning_rate=self.learning_rate,
-      epsilon=self.epsilon).minimize(self.loss, var_list=self.variables)
+      epsilon=self.epsilon).minimize(self.image_loss, var_list=self.variables)
+
+    # Optimizer for training with symbol target
+    self.symbol_optimizer = tf.train.AdamOptimizer(
+      learning_rate=self.learning_rate,
+      epsilon=self.epsilon).minimize(self.symbol_loss, var_list=self.variables)
 
 
-  def partial_fit(self, sess, ys0, ys1, xs, h, summary_writer, step):
-    """Train model based on mini-batch of input data.
-    
+  def partial_fit_with_image(self, sess, ys0, ys1, xs, hs, summary_writer, step):
+    """Train recombinator with image target.
+
     Return loss of mini-batch.
     """
-    _, loss, summary_str  = sess.run((self.optimizer,
-                                      self.loss,
-                                      self.summary_op),
+    _, loss, summary_str  = sess.run((self.image_optimizer,
+                                      self.image_loss,
+                                      self.image_loss_summary_op),
                                      feed_dict={self.y0: ys0,
                                                 self.y1: ys1,
-                                                self.h: h,
+                                                self.h: hs,
                                                 self.x: xs})
+    summary_writer.add_summary(summary_str, step)    
+    return loss
+  
+    
+  def partial_fit_with_symbol(self, sess, ys0, ys1, ys, hs, summary_writer, step):
+    """Train recombinator with symbol target.
+
+    Return loss of mini-batch.
+    """
+    _, loss, summary_str  = sess.run((self.symbol_optimizer,
+                                      self.symbol_loss,
+                                      self.symbol_loss_summary_op),
+                                     feed_dict={self.y0: ys0,
+                                                self.y1: ys1,
+                                                self.h: hs,
+                                                self.y: ys})
     summary_writer.add_summary(summary_str, step)
     return loss
 
   
-  def recombinate(self, sess, ys0, ys1, hs):
-    """ Recominate labels. """
+  def recombinate_to_symbol(self, sess, ys0, ys1, hs):
+    """ Recominate labels into labels """
     return sess.run( self.y_out,
+                     feed_dict={self.y0: ys0,
+                                self.y1: ys1,
+                                self.h: hs} )
+
+  def recombinate_to_image(self, sess, ys0, ys1, hs):
+    """ Recominate labels into images """
+    return sess.run( self.x_out,
                      feed_dict={self.y0: ys0,
                                 self.y1: ys1,
                                 self.h: hs} )

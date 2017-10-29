@@ -214,11 +214,11 @@ def train_scan_recomb(session,
     # Loop over all batches
     for i in range(total_batch):
       # Get batch of images
-      batch_ys0, batch_ys1, batch_xs, batch_hs = data_manager.get_op_training_batch(batch_size)
+      batch_ys0, batch_ys1, batch_ys, batch_xs, batch_hs = data_manager.get_op_training_batch(batch_size)
       
-      # Fit training using batch data
-      loss = scan_recomb.partial_fit(session, batch_ys0, batch_ys1, batch_xs, batch_hs,
-                                     summary_writer, step)
+      # Fit training using batch data (using symbols as target)
+      loss = scan_recomb.partial_fit_with_symbol(session, batch_ys0, batch_ys1, batch_ys, batch_hs,
+                                                 summary_writer, step)
       
       # Compute average loss
       average_loss += loss / IMAGE_CAPACITY * batch_size
@@ -348,7 +348,8 @@ def recombination_check(session, scan_recomb, data_manager):
   # Check OP_AND
   y0 = data_manager.get_labels(obj_color=0)
   y1 = data_manager.get_labels(wall_color=0)
-  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
   print(">> OP_AND (obj_color=0, wall_color=0)")
   for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
@@ -356,11 +357,13 @@ def recombination_check(session, scan_recomb, data_manager):
                                                                           wall_color,
                                                                           floor_color,
                                                                           obj_id))
+  save_10_images(xs, "recomb_and")
 
   # Check OP_IN_COMMON
   y0 = data_manager.get_labels(obj_color=0, obj_id=0)
   y1 = data_manager.get_labels(obj_color=0, wall_color=0)
-  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
   print(">> OP_IN_COMMON (obj_color=0)")
   for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
@@ -368,11 +371,13 @@ def recombination_check(session, scan_recomb, data_manager):
                                                                           wall_color,
                                                                           floor_color,
                                                                           obj_id))
+  save_10_images(xs, "recomb_in_common")
 
   # Check OP_IGNORE
   y0 = data_manager.get_labels(obj_color=0, wall_color=0)
   y1 = data_manager.get_labels(obj_color=0)
-  ys = scan_recomb.recombinate(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
   print(">> OP_IGNORE (wall_color=0)")
   for i in range(10):
     obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
@@ -380,6 +385,7 @@ def recombination_check(session, scan_recomb, data_manager):
                                                                           wall_color,
                                                                           floor_color,
                                                                           obj_id))
+  save_10_images(xs, "recomb_ignore")
 
 def main(argv):
   data_manager = DataManager()
@@ -388,7 +394,7 @@ def main(argv):
   dae = DAE()
   vae = VAE(dae, beta=flags.vae_beta)
   scan = SCAN(dae, vae, beta=flags.scan_beta, lambd=flags.scan_lambda)
-  scan_recomb = SCANRecombinator(vae, scan)
+  scan_recomb = SCANRecombinator(dae, vae, scan)
 
   dae_saver  = CheckPointSaver(flags.checkpoint_dir, "dae",  dae.get_vars())
   vae_saver  = CheckPointSaver(flags.checkpoint_dir, "vae",  vae.get_vars())
