@@ -8,14 +8,15 @@ import numpy as np
 import os
 from scipy.misc import toimage
 import matplotlib.pyplot as plt
-from model import DAE, VAE, SCAN
+from model import DAE, VAE, SCAN, SCANRecombinator
 import utils
-from data_manager import DataManager, IMAGE_CAPACITY
+from data_manager import DataManager
+from data_manager import IMAGE_CAPACITY, OP_AND, OP_IN_COMMON, OP_IGNORE
+from options import get_options
 
-CHECKPOINT_DIR = 'checkpoints'
-LOG_FILE = './log/scan_log'
 
-n_samples = IMAGE_CAPACITY
+flags = get_options()
+
 
 class CheckPointSaver(object):
   def __init__(self, directory, name, variables):
@@ -48,11 +49,13 @@ def train_dae(session,
               display_epoch=1,
               save_epoch=50):
 
+  print("start training DAE")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_loss = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -64,7 +67,7 @@ def train_dae(session,
                              summary_writer, step)
       
       # Compute average loss
-      average_loss += loss / n_samples * batch_size
+      average_loss += loss / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -79,7 +82,7 @@ def train_dae(session,
       utils.save_image(rgb_image, "reconstr.png")
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
       
 
@@ -93,12 +96,14 @@ def train_vae(session,
               display_epoch=1,
               save_epoch=50):
 
+  print("start training Beta-VAE")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_reconstr_loss = 0.0
     average_latent_loss   = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -110,8 +115,8 @@ def train_vae(session,
                                                    summary_writer, step)
       
       # Compute average loss
-      average_reconstr_loss += reconstr_loss / n_samples * batch_size
-      average_latent_loss   += latent_loss   / n_samples * batch_size
+      average_reconstr_loss += reconstr_loss / IMAGE_CAPACITY * batch_size
+      average_latent_loss   += latent_loss   / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -126,9 +131,12 @@ def train_vae(session,
       hsv_image = reconstruct_xs[0].reshape((80,80,3))
       rgb_image = utils.convert_hsv_to_rgb(hsv_image)
       utils.save_image(rgb_image, "reconstr.png")
+      
+    if epoch % 100 == 99:
+      disentangle_check(session, vae, data_manager)
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
 
 
@@ -142,13 +150,15 @@ def train_scan(session,
                display_epoch=1,
                save_epoch=50):
 
+  print("start training SCAN")
+
   step = 0
   
   for epoch in range(training_epochs):
     average_reconstr_loss = 0.0
     average_latent_loss0  = 0.0
     average_latent_loss1  = 0.0
-    total_batch = int(n_samples / batch_size)
+    total_batch = int(IMAGE_CAPACITY / batch_size)
     
     # Loop over all batches
     for i in range(total_batch):
@@ -160,9 +170,9 @@ def train_scan(session,
                                                                    summary_writer, step)
       
       # Compute average loss
-      average_reconstr_loss += reconstr_loss / n_samples * batch_size
-      average_latent_loss0  += latent_loss0  / n_samples * batch_size
-      average_latent_loss1  += latent_loss1  / n_samples * batch_size
+      average_reconstr_loss += reconstr_loss / IMAGE_CAPACITY * batch_size
+      average_latent_loss0  += latent_loss0  / IMAGE_CAPACITY * batch_size
+      average_latent_loss1  += latent_loss1  / IMAGE_CAPACITY * batch_size
 
       step += 1
       
@@ -174,13 +184,54 @@ def train_scan(session,
             "latent1=",  "{:.3f}".format(average_latent_loss1))
 
     # Save to checkpoint
-    if epoch % save_epoch == 0:
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
       saver.save(session, epoch)
 
     # Check sym2img and img2sym
     if epoch % 100 == 0:
       sym2img_check(session, scan, data_manager)
       img2sym_check(session, scan, data_manager)
+
+      
+def train_scan_recomb(session,
+                      scan_recomb,
+                      data_manager,
+                      saver,
+                      summary_writer,
+                      batch_size=100,
+                      training_epochs=100,
+                      display_epoch=1,
+                      save_epoch=10):
+
+  print("start training SCAN Recombinator")
+
+  step = 0
+  
+  for epoch in range(training_epochs):
+    average_loss = 0.0
+    total_batch = int(IMAGE_CAPACITY / batch_size)
+    
+    # Loop over all batches
+    for i in range(total_batch):
+      # Get batch of images
+      batch_ys0, batch_ys1, batch_ys, batch_xs, batch_hs = data_manager.get_op_training_batch(batch_size)
+      
+      # Fit training using batch data (using symbols as target)
+      loss = scan_recomb.partial_fit_with_symbol(session, batch_ys0, batch_ys1, batch_ys, batch_hs,
+                                                 summary_writer, step)
+      
+      # Compute average loss
+      average_loss += loss / IMAGE_CAPACITY * batch_size
+
+      step += 1
+      
+     # Display logs per epoch step
+    if epoch % display_epoch == 0:
+      print("Epoch:", '%04d' % (epoch+1), "loss=", "{:.3f}".format(loss))
+
+    # Save to checkpoint
+    if (epoch % save_epoch == 0) or (epoch == training_epochs-1):
+      saver.save(session, epoch)
 
 
 def save_10_images(hsv_images, file_name):
@@ -232,22 +283,20 @@ def disentangle_check(session, vae, data_manager, save_original=False):
     os.mkdir("disentangle_img")
 
   for target_z_index in range(n_z):
-    generated_images = []
+    z_mean2 = np.zeros((10, n_z))
     
     for ri in range(10):
       # Change z mean value from -3.0 to +3.0
       value = -3.0 + (6.0 / 9.0) * ri
-      z_mean2 = np.zeros((1, n_z))
+
       for i in range(n_z):
         if( i == target_z_index ):
-          z_mean2[0][i] = value
+          z_mean2[ri][i] = value
         else:
-          z_mean2[0][i] = z_m[i]
-      generated_xs = vae.generate(session, z_mean2)
-      generated_images.append(generated_xs)
-
+          z_mean2[ri][i] = z_m[i]
+    generated_xs = vae.generate(session, z_mean2)
     file_name = "disentangle_img/check_z{0}.png".format(target_z_index)
-    save_10_images(generated_images, file_name)
+    save_10_images(generated_xs, file_name)
 
 
 def sym2img_check_sub(session, scan, y, file_name):
@@ -283,27 +332,74 @@ def img2sym_check_sub(session, scan, data_manager, hsv_image):
 def img2sym_check(session, scan, data_manager):
   """ Check img2sym conversion """
   hsv_image0 = data_manager.get_image(obj_color=0, wall_color=0, floor_color=0, obj_id=0)
+  print("img2sym: obj_color=0, wall_color=0, floor_color=0, obj_id=0")
   #rgb_image0 = utils.convert_hsv_to_rgb(hsv_image0)
   #utils.save_image(rgb_image0, "img2sym0.png")
   img2sym_check_sub(session, scan, data_manager, hsv_image0)
 
   hsv_image1 = data_manager.get_image(obj_color=10, wall_color=12, floor_color=5, obj_id=1)
+  print("img2sym: obj_color=10, wall_color=12, floor_color=5, obj_id=1")
   #rgb_image1 = utils.convert_hsv_to_rgb(hsv_image1)
   #utils.save_image(rgb_image1, "img2sym1.png")
   img2sym_check_sub(session, scan, data_manager, hsv_image1)
 
+
+def recombination_check(session, scan_recomb, data_manager):
+  # Check OP_AND
+  y0 = data_manager.get_labels(obj_color=0)
+  y1 = data_manager.get_labels(wall_color=0)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_AND] * 10)
+  print(">> OP_AND (obj_color=0, wall_color=0)")
+  for i in range(10):
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
+  save_10_images(xs, "recomb_and")
+
+  # Check OP_IN_COMMON
+  y0 = data_manager.get_labels(obj_color=0, obj_id=0)
+  y1 = data_manager.get_labels(obj_color=0, wall_color=0)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_IN_COMMON] * 10)
+  print(">> OP_IN_COMMON (obj_color=0)")
+  for i in range(10):
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
+  save_10_images(xs, "recomb_in_common")
+
+  # Check OP_IGNORE
+  y0 = data_manager.get_labels(obj_color=0, wall_color=0)
+  y1 = data_manager.get_labels(obj_color=0)
+  ys = scan_recomb.recombinate_to_symbol(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
+  xs = scan_recomb.recombinate_to_image(session, [y0] * 10, [y1] * 10, [OP_IGNORE] * 10)
+  print(">> OP_IGNORE (wall_color=0)")
+  for i in range(10):
+    obj_color, wall_color, floor_color, obj_id = data_manager.choose_labels(ys[i])
+    print("obj_color={}, wall_color={}, floor_color={}, obj_id={}".format(obj_color,
+                                                                          wall_color,
+                                                                          floor_color,
+                                                                          obj_id))
+  save_10_images(xs, "recomb_ignore")
 
 def main(argv):
   data_manager = DataManager()
   data_manager.prepare()
 
   dae = DAE()
-  vae = VAE(dae)
-  scan = SCAN(dae, vae)
+  vae = VAE(dae, beta=flags.vae_beta)
+  scan = SCAN(dae, vae, beta=flags.scan_beta, lambd=flags.scan_lambda)
+  scan_recomb = SCANRecombinator(dae, vae, scan)
 
-  dae_saver  = CheckPointSaver(CHECKPOINT_DIR, "dae",  dae.get_vars())
-  vae_saver  = CheckPointSaver(CHECKPOINT_DIR, "vae",  vae.get_vars())
-  scan_saver = CheckPointSaver(CHECKPOINT_DIR, "scan", scan.get_vars())
+  dae_saver  = CheckPointSaver(flags.checkpoint_dir, "dae",  dae.get_vars())
+  vae_saver  = CheckPointSaver(flags.checkpoint_dir, "vae",  vae.get_vars())
+  scan_saver = CheckPointSaver(flags.checkpoint_dir, "scan", scan.get_vars())
+  scan_recomb_saver = CheckPointSaver(flags.checkpoint_dir, "scan_recomb", scan_recomb.get_vars())
 
   sess = tf.Session()
 
@@ -312,26 +408,36 @@ def main(argv):
   sess.run(init)
 
   # For Tensorboard log
-  summary_writer = tf.summary.FileWriter(LOG_FILE, sess.graph)
+  summary_writer = tf.summary.FileWriter(flags.log_file, sess.graph)
 
   # Load from checkpoint
   dae_saver.load(sess)
   vae_saver.load(sess)
   scan_saver.load(sess)
+  scan_recomb_saver.load(sess)
 
   # Train
-  train_dae(sess, dae, data_manager, dae_saver, summary_writer)
-  train_vae(sess, vae, data_manager, vae_saver, summary_writer)
-  
+  if flags.train_dae:
+    train_dae(sess, dae, data_manager, dae_saver, summary_writer)
+
+  if flags.train_vae:
+    train_vae(sess, vae, data_manager, vae_saver, summary_writer)
+
   disentangle_check(sess, vae, data_manager)
-  
-  train_scan(sess, scan, data_manager, scan_saver, summary_writer)
-  
+
+  if flags.train_scan:
+    train_scan(sess, scan, data_manager, scan_saver, summary_writer)
+
   sym2img_check(sess, scan, data_manager)
   img2sym_check(sess, scan, data_manager)
 
+  if flags.train_scan_recomb:
+    train_scan_recomb(sess, scan_recomb, data_manager, scan_recomb_saver, summary_writer)
+
+  recombination_check(sess, scan_recomb, data_manager)
+
   sess.close()
-  
+
 
 if __name__ == '__main__':
   tf.app.run()

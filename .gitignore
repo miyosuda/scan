@@ -7,3 +7,5 @@ disentangle_img
 reconstr.png
 sym2img*.png
 img2sym*.png
+recomb*.png
+train.sh
