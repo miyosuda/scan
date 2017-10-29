@@ -60,6 +60,23 @@ Symbol to image conversion result.
 (Correct `obj_color` was `red`, but confused as `purple`. `floor_color` was not specifiled in the output.)
 
 
+### Concept recombination
+
+Concept reombination result as image outputs.
+
+1) Recombination result of `(obj_color=white) AND (wall_color=white)`. (Correct result should have white object and white wall.)
+
+![](doc/recomb/op_and.png)
+
+2) Recombination result of `(obj_color=white, obj_id=ice_lolly) IN_COMMON (obj_color=white, wall_color=white`. (Correct result should have white object.)
+
+![](doc/recomb/op_in_common.png)
+
+3) Recombination result of `(obj_color=white, wall_color=white) IGNORE (obj_color=white)`. (Correct result should have white wall.)
+
+![](doc/recomb/op_ignore.png)
+
+
 ### βVAE disentanglement
 
 Disentanglement result for latent variables for object parameters. (Wall color, Object color, Floor Color, Object Type, Object position).
